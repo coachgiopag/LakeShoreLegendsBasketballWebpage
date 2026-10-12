@@ -4,8 +4,8 @@
 Until then the booking page shows no dates; families can still use **Request Training**.
 
 - [x] Open https://www.lakeshorelegendsbasketball.com/coach-admin.html and check there's **no orange "Test server" badge** next to your name.
-- [ ] Go to **Availability** and add openings. **Recurring** fills several weeks at once; **Bulk add** fills one day with back-to-back sessions.
-- [ ] Open the booking page (training.html) and confirm the dates show up.
+- [x] Go to **Availability** and add openings. **Recurring** fills several weeks at once; **Bulk add** fills one day with back-to-back sessions.
+- [x] Open the booking page (training.html) and confirm the dates show up.
 
 ## 2. Family emails — LIVE (9/29)
 Resend verified; DNS now on Cloudflare; emails send from bookings@lakeshorelegendsbasketball.com to families.
