@@ -7,12 +7,17 @@ Until then the booking page shows no dates; families can still use **Request Tra
 - [x] Go to **Availability** and add openings. **Recurring** fills several weeks at once; **Bulk add** fills one day with back-to-back sessions.
 - [x] Open the booking page (training.html) and confirm the dates show up.
 
+- [ ] Decide on Park Ridge: only Mundelein has openings (6 slots, all 3:45 PM: Oct 13, 15, 19, 20, 22, 28), so the Park Ridge filter shows an empty calendar. Add Park Ridge openings or hide it.
+- [ ] Each opening is a single slot per day, so only one family can book that day. Add more times if that's not intended.
+- [ ] Bookings need 24 hours' notice, so the Oct 13 slot closes about 3:45 PM Oct 12 Central. Add later dates before the current ones run out (the 90-day booking window is not the limit; the last opening is Oct 28).
+
 ## 2. Family emails — LIVE (9/29)
 Resend verified; DNS now on Cloudflare; emails send from bookings@lakeshorelegendsbasketball.com to families.
 - [x] Reply-to and coach alert emails set in Settings → Notifications (test email landed in the inbox).
 
 ## 3. First real booking
 - [ ] After a family pays, the booking turns **Confirmed + Paid** on its own and they land back on your training page. If it stays "Awaiting payment", ask Claude to check the server log.
+- [ ] Before the paid test, confirm the Stripe checkout amounts match the site: $79.99 / $59.99 / $49.99 / $39.99 (the catalog API returns no prices, so this can only be checked in Stripe).
 - [ ] For a group session, the booking shows "1 of N athletes paid" until every family has paid with the shared link (tick **Paid** by hand for cash or Venmo).
 
 ## 4. Search & AI visibility
