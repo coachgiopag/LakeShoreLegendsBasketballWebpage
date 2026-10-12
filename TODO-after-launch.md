@@ -24,6 +24,14 @@ Resend verified; DNS now on Cloudflare; emails send from bookings@lakeshorelegen
 - [ ] Google Business Profile: waiting on Google's verification. Once verified, add photos, and ask a few families for reviews. Send Claude the profile's Maps link so it can be added to the site's structured data.
 - [ ] (Optional) Bing Webmaster Tools: import from Google Search Console and submit the sitemap — helps ChatGPT search.
 
+## 5. Security housekeeping
+- [ ] A GitHub personal access token (starts `ghp_kz3o`) was pasted in plain text in the old "Design: LakeShore Legends Basketball" chat (Aug 11). Revoke it at GitHub → Settings → Developer settings → Personal access tokens, if it still exists.
+
+## Reference: booking rules carried over from the design chat (already built into api/)
+- Cross-location slots on the same day keep a minimum gap between starts (default 120 min = 60 min session + 60 min travel). It is one global number in Settings, not per location pair.
+- Booking or marking a slot Booked bumps or deletes conflicting slots at other locations (per Settings), including their back-to-back slots; marking it Open reverts only what that action changed.
+- "Add B2B" never creates a duplicate slot at a time and location that already has one.
+
 ## Done
 - [x] Stripe post-payment page: new live Payment Links send families back to training.html (9/28).
 - [x] Group sessions priced per athlete; each family pays its own share (9/28).
