@@ -126,7 +126,7 @@ function InfoCard() {
   const rows = [
     ['mail', 'Email', <a href="mailto:coachgiopag@gmail.com">coachgiopag@gmail.com</a>],
     ['phone', 'Phone', <a href="tel:+12244259490">(224) 425-9490</a>],
-    ['map-pin', 'Based In', 'Park Ridge, IL & Mundelein, IL'],
+    ['map-pin', 'Based In', <>Park Ridge, IL &amp; Mundelein, IL<br /><a href="https://www.google.com/maps/place/LakeShore+Legends+Basketball/@41.9743491,-87.795934,10z/data=!3m1!4b1!4m6!3m5!1s0xa30c2e7c809a2921:0x5a95a59e1b3711ea!8m2!3d41.9743491!4d-87.795934!16s%2Fg%2F11zy02tnkz" target="_blank" rel="noopener">View on Google Maps</a></>],
     ['clock', 'Response Time', '1–2 business days'],
   ];
   const socials = [

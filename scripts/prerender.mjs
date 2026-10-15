@@ -26,6 +26,7 @@ const LINKEDIN_GIO = 'https://www.linkedin.com/in/gio-paganis/';
 const X_ORG = 'https://x.com/LSLegendsHoops';
 const IG_GIO = 'https://www.instagram.com/coachgiopag/';
 const X_GIO = 'https://x.com/CoachGioPag';
+const MAPS_ORG = 'https://www.google.com/maps/place/LakeShore+Legends+Basketball/@41.9743491,-87.795934,10z/data=!3m1!4b1!4m6!3m5!1s0xa30c2e7c809a2921:0x5a95a59e1b3711ea!8m2!3d41.9743491!4d-87.795934!16s%2Fg%2F11zy02tnkz';
 
 // Online prices (Stripe is the source of truth — update here if they change).
 const SERVICES = [
@@ -71,7 +72,7 @@ const orgNode = {
     { '@type': 'AdministrativeArea', name: 'Chicago North and Northwest Suburbs' },
   ],
   founder: { '@id': SITE + '/#gio' }, employee: { '@id': SITE + '/#gio' },
-  sameAs: [IG_GIO, X_ORG],
+  sameAs: [IG_GIO, X_ORG, MAPS_ORG],
 };
 const personNode = {
   '@type': 'Person', '@id': SITE + '/#gio', name: 'Gio Paganis', alternateName: 'Coach Gio',
