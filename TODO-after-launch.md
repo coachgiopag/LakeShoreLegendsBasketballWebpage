@@ -17,7 +17,7 @@ Resend verified; DNS now on Cloudflare; emails send from bookings@lakeshorelegen
 
 ## 3. First real booking
 - [x] (Gio confirmed a real paid booking worked, 10/12–10/15) After a family pays, the booking turns **Confirmed + Paid** on its own and they land back on your training page. If it stays "Awaiting payment", ask Claude to check the server log.
-- [ ] Before the paid test, confirm the Stripe checkout amounts match the site: $79.99 / $59.99 / $49.99 / $39.99 (the catalog API returns no prices, so this can only be checked in Stripe).
+- [x] (Gio confirmed the charge for the booked service equaled the site price exactly; the other Payment Links are not individually verified.) Stripe checkout amounts vs site: $79.99 / $59.99 / $49.99 / $39.99 (the catalog API returns no prices, so this can only be checked in Stripe).
 - [ ] For a group session, the booking shows "1 of N athletes paid" until every family has paid with the shared link (tick **Paid** by hand for cash or Venmo).
 
 ## 4. Search & AI visibility
