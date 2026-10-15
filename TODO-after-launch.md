@@ -22,9 +22,9 @@ Resend verified; DNS now on Cloudflare; emails send from bookings@lakeshorelegen
 
 ## 4. Search & AI visibility
 - [x] Google Maps link added to the site (sameAs, footer, contact page; live 10/15).
-- [ ] Google Business Profile: confirm it shows as verified; add photos and ask a few families for reviews. (Review link already added to the site footer and Contact page, 10/15.)
+- [x] (Gio: done 10/15) Google Business Profile: confirm it shows as verified; add photos and ask a few families for reviews. (Review link already added to the site footer and Contact page, 10/15.)
 - [ ] Add the Maps and review links (https://g.page/r/CeoRNxuepZVaEBM/review) to the family confirmation email (this edits the booking Worker, so it needs a staging test first).
-- [ ] (Optional) Bing Webmaster Tools: import from Google Search Console and submit the sitemap — helps ChatGPT search.
+- [x] (Gio: done 10/15) (Optional) Bing Webmaster Tools: import from Google Search Console and submit the sitemap — helps ChatGPT search.
 
 ## 5. Security housekeeping
 - [x] (Gio deleted the one classic token found, Oct 2026; account lists otherwise empty) A GitHub personal access token (starts `ghp_kz3o`) was pasted in plain text in the old "Design: LakeShore Legends Basketball" chat (Aug 11). Revoke it at GitHub → Settings → Developer settings → Personal access tokens, if it still exists.
