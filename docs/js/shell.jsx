@@ -4,7 +4,7 @@
 const RxShell = React;
 
 const NAV = [
-  { label: 'Home', href: 'home.html' },
+  { label: 'Home', href: '/' },
   { label: 'About', href: 'about.html' },
   { label: 'Training', href: 'training.html' },
   { label: 'Alumni', href: 'alumni.html' },
@@ -54,7 +54,7 @@ function Header({ page }) {
   return (
     <header className={'lsl-header' + (scrolled ? ' is-scrolled' : '')}>
       <div className="lsl-header__inner">
-        <a className="lsl-brand" href="home.html">
+        <a className="lsl-brand" href="/">
           <Crest size={46} />
           <span className="lsl-brand__name">Lake&nbsp;Shore<br/>Legends</span>
         </a>

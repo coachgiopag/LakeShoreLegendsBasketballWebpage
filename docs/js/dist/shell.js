@@ -11,7 +11,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 var RxShell = React;
 var NAV = [{
   label: 'Home',
-  href: 'home.html'
+  href: '/'
 }, {
   label: 'About',
   href: 'about.html'
@@ -157,7 +157,7 @@ function Header(_ref4) {
     className: "lsl-header__inner"
   }, /*#__PURE__*/React.createElement("a", {
     className: "lsl-brand",
-    href: "home.html"
+    href: "/"
   }, /*#__PURE__*/React.createElement(Crest, {
     size: 46
   }), /*#__PURE__*/React.createElement("span", {
