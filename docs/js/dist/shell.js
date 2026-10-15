@@ -268,7 +268,7 @@ function CTA(_ref7) {
   }, btn)));
 }
 function Footer() {
-  var cols = [['Quick Links', [['Meet Our Coaches', 'about.html'], ['Training Programs', 'training.html'], ['Alumni Success Stories', 'alumni.html'], ['Jr. Mustangs Feeder', 'https://mundyball.com/feeder-home']]], ['Follow Us', [['Twitter / X', 'https://x.com/LSLegendsHoops'], ['Instagram', 'https://www.instagram.com/coachgiopag/'], ['LinkedIn', 'https://www.linkedin.com/in/gio-paganis/'], ['Google Maps', 'https://www.google.com/maps/place/LakeShore+Legends+Basketball/@41.9743491,-87.795934,10z/data=!3m1!4b1!4m6!3m5!1s0xa30c2e7c809a2921:0x5a95a59e1b3711ea!8m2!3d41.9743491!4d-87.795934!16s%2Fg%2F11zy02tnkz']]], ['Resources', [['Contact Us', 'contact.html'], ['Code of Conduct', 'codes.html'], ['Forms', '#'], ['FAQs', 'contact.html']]]];
+  var cols = [['Quick Links', [['Meet Our Coaches', 'about.html'], ['Training Programs', 'training.html'], ['Alumni Success Stories', 'alumni.html'], ['Jr. Mustangs Feeder', 'https://mundyball.com/feeder-home']]], ['Follow Us', [['Twitter / X', 'https://x.com/LSLegendsHoops'], ['Instagram', 'https://www.instagram.com/coachgiopag/'], ['LinkedIn', 'https://www.linkedin.com/in/gio-paganis/'], ['Google Maps', 'https://www.google.com/maps/place/LakeShore+Legends+Basketball/@41.9743491,-87.795934,10z/data=!3m1!4b1!4m6!3m5!1s0xa30c2e7c809a2921:0x5a95a59e1b3711ea!8m2!3d41.9743491!4d-87.795934!16s%2Fg%2F11zy02tnkz'], ['Leave a Review', 'https://g.page/r/CeoRNxuepZVaEBM/review']]], ['Resources', [['Contact Us', 'contact.html'], ['Code of Conduct', 'codes.html'], ['Forms', '#'], ['FAQs', 'contact.html']]]];
   return /*#__PURE__*/React.createElement("footer", {
     className: "lsl-footer"
   }, /*#__PURE__*/React.createElement("div", {
