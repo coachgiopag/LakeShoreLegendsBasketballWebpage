@@ -25,7 +25,7 @@ Resend verified; DNS now on Cloudflare; emails send from bookings@lakeshorelegen
 - [ ] (Optional) Bing Webmaster Tools: import from Google Search Console and submit the sitemap — helps ChatGPT search.
 
 ## 5. Security housekeeping
-- [ ] A GitHub personal access token (starts `ghp_kz3o`) was pasted in plain text in the old "Design: LakeShore Legends Basketball" chat (Aug 11). Revoke it at GitHub → Settings → Developer settings → Personal access tokens, if it still exists.
+- [x] (Gio deleted the one classic token found, Oct 2026; account lists otherwise empty) A GitHub personal access token (starts `ghp_kz3o`) was pasted in plain text in the old "Design: LakeShore Legends Basketball" chat (Aug 11). Revoke it at GitHub → Settings → Developer settings → Personal access tokens, if it still exists.
 
 ## Reference: booking rules carried over from the design chat (already built into api/)
 - Cross-location slots on the same day keep a minimum gap between starts (default 120 min = 60 min session + 60 min travel). It is one global number in Settings, not per location pair.
