@@ -21,7 +21,9 @@ Resend verified; DNS now on Cloudflare; emails send from bookings@lakeshorelegen
 - [ ] For a group session, the booking shows "1 of N athletes paid" until every family has paid with the shared link (tick **Paid** by hand for cash or Venmo).
 
 ## 4. Search & AI visibility
-- [ ] Google Business Profile: waiting on Google's verification. Once verified, add photos, and ask a few families for reviews. Send Claude the profile's Maps link so it can be added to the site's structured data.
+- [x] Google Maps link added to the site (sameAs, footer, contact page; live 10/15).
+- [ ] Google Business Profile: confirm it shows as verified; add photos and ask a few families for reviews. Send Claude the **review link** (Business Profile → Get more reviews → Share review form) to add it to the site.
+- [ ] Add the Maps and review links to the family confirmation email (this edits the booking Worker, so it needs a staging test first).
 - [ ] (Optional) Bing Webmaster Tools: import from Google Search Console and submit the sitemap — helps ChatGPT search.
 
 ## 5. Security housekeeping
