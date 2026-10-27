@@ -40,6 +40,11 @@ Coach reserves an opening for one client and sends them a private link (Availabi
 - [ ] First real use: reserve a time for yourself, open the link, and pay it with a real card (or test it by booking a time you'd take anyway). Then confirm it turns Confirmed + Paid and the email arrives.
 - [ ] Optional: add the reserve link to a client email template (needs a Worker change).
 
+## 7. Calendar updates (built, not deployed)
+Branch `claude/calendar-updates`. Worker deploy only, no migration: from `api/` run `npm run deploy`, then the site changes are merged.
+- [ ] Public calendar shows past days with their real booked sessions (last ~3 months; never unbooked openings).
+- [ ] Add B2B now offers Before / "Add buffer time?" (15–90 min) / After.
+
 ## Done
 - [x] Stripe post-payment page: new live Payment Links send families back to training.html (9/28).
 - [x] Group sessions priced per athlete; each family pays its own share (9/28).

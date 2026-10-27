@@ -166,9 +166,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     var mark = (s, status) => run(() => A.api('POST', '/api/admin/slots/' + s.id + '/mark', {
       status
     }), r => status === 'booked' ? 'Marked booked' + (r.changes && r.changes.length ? ' — ' + r.changes.length + ' conflicting opening(s) adjusted' : '') : 'Opening is available again').then(refresh).catch(() => {});
-    var addB2B = (s, dir) => run(() => A.api('POST', '/api/admin/slots/' + s.id + '/b2b', {
-      dir
-    }), 'Back-to-back opening added').then(refresh).catch(() => {});
+    var addB2B = (s, dir, buffer) => run(() => A.api('POST', '/api/admin/slots/' + s.id + '/b2b', {
+      dir,
+      buffer: buffer || 0
+    }), buffer ? 'Back-to-back opening added with a ' + buffer + ' minute buffer' : 'Back-to-back opening added').then(refresh).catch(() => {});
     var remove = /*#__PURE__*/function () {
       var _ref3 = _asyncToGenerator(function* (s) {
         if (s.series_id && !s.series_detached) {
@@ -505,6 +506,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       _useState10 = _slicedToArray(_useState1, 2),
       pick = _useState10[0],
       setPick = _useState10[1];
+    var _useState11 = useState(0),
+      _useState12 = _slicedToArray(_useState11, 2),
+      buffer = _useState12[0],
+      setBuffer = _useState12[1];
     var hard = s.conflicts.filter(c => c.severity === 'hard');
     var soft = s.conflicts.filter(c => c.severity !== 'hard');
     var anchor = s.contingent_on ? byId[s.contingent_on] : null;
@@ -569,7 +574,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       name: "lock",
       size: 11
     }), " Shown to families once ", LSL.fmtTime(anchor.time), " is booked")), /*#__PURE__*/React.createElement("div", {
-      className: "lsl-admcal__slotactions"
+      className: 'lsl-admcal__slotactions' + (pick ? ' is-picking' : '')
     }, s.status === 'open' && /*#__PURE__*/React.createElement("button", {
       className: 'lsl-btn lsl-btn--xs ' + (s.reservation ? 'lsl-btn--primary' : 'lsl-btn--ghost'),
       disabled: busy,
@@ -592,17 +597,32 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       className: "lsl-btn lsl-btn--ghost lsl-btn--xs",
       onClick: () => {
         setPick(false);
-        onB2B(s, 'before');
+        onB2B(s, 'before', buffer);
+        setBuffer(0);
       }
-    }, "\u2190 Before"), /*#__PURE__*/React.createElement("button", {
+    }, "\u2190 Before"), /*#__PURE__*/React.createElement("select", {
+      className: "lsl-select lsl-admcal__bufsel",
+      value: buffer,
+      onChange: e => setBuffer(+e.target.value),
+      "aria-label": "Add buffer time?"
+    }, /*#__PURE__*/React.createElement("option", {
+      value: 0
+    }, "Add buffer time?"), [15, 30, 45, 60, 75, 90].map(m => /*#__PURE__*/React.createElement("option", {
+      key: m,
+      value: m
+    }, m, " min buffer"))), /*#__PURE__*/React.createElement("button", {
       className: "lsl-btn lsl-btn--ghost lsl-btn--xs",
       onClick: () => {
         setPick(false);
-        onB2B(s, 'after');
+        onB2B(s, 'after', buffer);
+        setBuffer(0);
       }
     }, "After \u2192"), /*#__PURE__*/React.createElement("button", {
       className: "lsl-btn lsl-btn--ghost lsl-btn--xs",
-      onClick: () => setPick(false)
+      onClick: () => {
+        setPick(false);
+        setBuffer(0);
+      }
     }, "Cancel")) : /*#__PURE__*/React.createElement("button", {
       className: "lsl-btn lsl-btn--ghost lsl-btn--xs",
       onClick: () => setPick(true)
@@ -645,26 +665,26 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       multiCoach = _ref9.multiCoach,
       onDone = _ref9.onDone;
     var app = A.useApp();
-    var _useState11 = useState(''),
-      _useState12 = _slicedToArray(_useState11, 2),
-      time = _useState12[0],
-      setTime = _useState12[1];
-    var _useState13 = useState(app.settings.defaultDuration),
+    var _useState13 = useState(''),
       _useState14 = _slicedToArray(_useState13, 2),
-      dur = _useState14[0],
-      setDur = _useState14[1];
-    var _useState15 = useState(locs[0] ? locs[0].id : ''),
+      time = _useState14[0],
+      setTime = _useState14[1];
+    var _useState15 = useState(app.settings.defaultDuration),
       _useState16 = _slicedToArray(_useState15, 2),
-      loc = _useState16[0],
-      setLoc = _useState16[1];
-    var _useState17 = useState(''),
+      dur = _useState16[0],
+      setDur = _useState16[1];
+    var _useState17 = useState(locs[0] ? locs[0].id : ''),
       _useState18 = _slicedToArray(_useState17, 2),
-      coach = _useState18[0],
-      setCoach = _useState18[1];
+      loc = _useState18[0],
+      setLoc = _useState18[1];
     var _useState19 = useState(''),
       _useState20 = _slicedToArray(_useState19, 2),
-      err = _useState20[0],
-      setErr = _useState20[1];
+      coach = _useState20[0],
+      setCoach = _useState20[1];
+    var _useState21 = useState(''),
+      _useState22 = _slicedToArray(_useState21, 2),
+      err = _useState22[0],
+      setErr = _useState22[1];
     var _A$useAction3 = A.useAction(),
       _A$useAction4 = _slicedToArray(_A$useAction3, 2),
       busy = _A$useAction4[0],
@@ -781,18 +801,18 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   /** Shared preview → confirm flow for bulk-style generators. */
   function useGenerator(onDone, onClose) {
     var toast = A.useToast();
-    var _useState21 = useState(null),
-      _useState22 = _slicedToArray(_useState21, 2),
-      preview = _useState22[0],
-      setPreview = _useState22[1];
-    var _useState23 = useState(''),
+    var _useState23 = useState(null),
       _useState24 = _slicedToArray(_useState23, 2),
-      err = _useState24[0],
-      setErr = _useState24[1];
-    var _useState25 = useState(false),
+      preview = _useState24[0],
+      setPreview = _useState24[1];
+    var _useState25 = useState(''),
       _useState26 = _slicedToArray(_useState25, 2),
-      busy = _useState26[0],
-      setBusy = _useState26[1];
+      err = _useState26[0],
+      setErr = _useState26[1];
+    var _useState27 = useState(false),
+      _useState28 = _slicedToArray(_useState27, 2),
+      busy = _useState28[0],
+      setBusy = _useState28[1];
     var go = /*#__PURE__*/function () {
       var _ref1 = _asyncToGenerator(function* (body, dry) {
         setErr('');
@@ -898,7 +918,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       onClose = _ref11.onClose,
       onDone = _ref11.onDone;
     var app = A.useApp();
-    var _useState27 = useState({
+    var _useState29 = useState({
         start: '15:00',
         end: '19:00',
         duration: app.settings.defaultDuration,
@@ -906,13 +926,13 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         loc_id: locs[0] && locs[0].id,
         coach_id: ''
       }),
-      _useState28 = _slicedToArray(_useState27, 2),
-      v = _useState28[0],
-      setV = _useState28[1];
-    var _useState29 = useState(date),
       _useState30 = _slicedToArray(_useState29, 2),
-      dates = _useState30[0],
-      setDates = _useState30[1];
+      v = _useState30[0],
+      setV = _useState30[1];
+    var _useState31 = useState(date),
+      _useState32 = _slicedToArray(_useState31, 2),
+      dates = _useState32[0],
+      setDates = _useState32[1];
     var g = useGenerator(onDone, onClose);
     var body = () => _objectSpread(_objectSpread({
       mode: 'range',
@@ -973,7 +993,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       _onDone = _ref12.onDone;
     var app = A.useApp();
     var toast = A.useToast();
-    var _useState31 = useState({
+    var _useState33 = useState({
         start: '16:00',
         end: '18:00',
         duration: app.settings.defaultDuration,
@@ -981,24 +1001,24 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         loc_id: locs[0] && locs[0].id,
         coach_id: ''
       }),
-      _useState32 = _slicedToArray(_useState31, 2),
-      v = _useState32[0],
-      setV = _useState32[1];
-    var _useState33 = useState([dowOf(date)]),
       _useState34 = _slicedToArray(_useState33, 2),
-      wd = _useState34[0],
-      setWd = _useState34[1];
-    var _useState35 = useState({
+      v = _useState34[0],
+      setV = _useState34[1];
+    var _useState35 = useState([dowOf(date)]),
+      _useState36 = _slicedToArray(_useState35, 2),
+      wd = _useState36[0],
+      setWd = _useState36[1];
+    var _useState37 = useState({
         start_date: date < app.today ? app.today : date,
         end_date: addDays(date < app.today ? app.today : date, 56)
       }),
-      _useState36 = _slicedToArray(_useState35, 2),
-      range = _useState36[0],
-      setRange = _useState36[1];
-    var _useState37 = useState(null),
       _useState38 = _slicedToArray(_useState37, 2),
-      editing = _useState38[0],
-      setEditing = _useState38[1];
+      range = _useState38[0],
+      setRange = _useState38[1];
+    var _useState39 = useState(null),
+      _useState40 = _slicedToArray(_useState39, 2),
+      editing = _useState40[0],
+      setEditing = _useState40[1];
     var g = useGenerator(_onDone, onClose);
     var body = () => _objectSpread(_objectSpread(_objectSpread({
       mode: 'series',
@@ -1141,7 +1161,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       onDone = _ref14.onDone;
     var app = A.useApp();
     var toast = A.useToast();
-    var _useState39 = useState({
+    var _useState41 = useState({
         start: sr.start_time,
         end: sr.end_time,
         duration: sr.duration,
@@ -1149,25 +1169,25 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         loc_id: sr.loc_id,
         coach_id: sr.coach_id || ''
       }),
-      _useState40 = _slicedToArray(_useState39, 2),
-      v = _useState40[0],
-      setV = _useState40[1];
-    var _useState41 = useState(sr.weekdays),
       _useState42 = _slicedToArray(_useState41, 2),
-      wd = _useState42[0],
-      setWd = _useState42[1];
-    var _useState43 = useState(app.today > sr.start_date ? app.today : sr.start_date),
+      v = _useState42[0],
+      setV = _useState42[1];
+    var _useState43 = useState(sr.weekdays),
       _useState44 = _slicedToArray(_useState43, 2),
-      fromDate = _useState44[0],
-      setFromDate = _useState44[1];
-    var _useState45 = useState(sr.end_date),
+      wd = _useState44[0],
+      setWd = _useState44[1];
+    var _useState45 = useState(app.today > sr.start_date ? app.today : sr.start_date),
       _useState46 = _slicedToArray(_useState45, 2),
-      endDate = _useState46[0],
-      setEndDate = _useState46[1];
-    var _useState47 = useState(false),
+      fromDate = _useState46[0],
+      setFromDate = _useState46[1];
+    var _useState47 = useState(sr.end_date),
       _useState48 = _slicedToArray(_useState47, 2),
-      busy = _useState48[0],
-      setBusy = _useState48[1];
+      endDate = _useState48[0],
+      setEndDate = _useState48[1];
+    var _useState49 = useState(false),
+      _useState50 = _slicedToArray(_useState49, 2),
+      busy = _useState50[0],
+      setBusy = _useState50[1];
     var save = /*#__PURE__*/function () {
       var _ref15 = _asyncToGenerator(function* () {
         setBusy(true);
@@ -1252,22 +1272,22 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       onClose = _ref16.onClose,
       onDone = _ref16.onDone;
     var app = A.useApp();
-    var _useState49 = useState('copy_day'),
-      _useState50 = _slicedToArray(_useState49, 2),
-      mode = _useState50[0],
-      setMode = _useState50[1];
-    var _useState51 = useState(date),
+    var _useState51 = useState('copy_day'),
       _useState52 = _slicedToArray(_useState51, 2),
-      src = _useState52[0],
-      setSrc = _useState52[1];
-    var _useState53 = useState(addDays(date, 7)),
+      mode = _useState52[0],
+      setMode = _useState52[1];
+    var _useState53 = useState(date),
       _useState54 = _slicedToArray(_useState53, 2),
-      dst = _useState54[0],
-      setDst = _useState54[1];
-    var _useState55 = useState(''),
+      src = _useState54[0],
+      setSrc = _useState54[1];
+    var _useState55 = useState(addDays(date, 7)),
       _useState56 = _slicedToArray(_useState55, 2),
-      loc = _useState56[0],
-      setLoc = _useState56[1];
+      dst = _useState56[0],
+      setDst = _useState56[1];
+    var _useState57 = useState(''),
+      _useState58 = _slicedToArray(_useState57, 2),
+      loc = _useState58[0],
+      setLoc = _useState58[1];
     var g = useGenerator(onDone, onClose);
     var body = () => mode === 'copy_week' ? {
       mode,
@@ -1358,7 +1378,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       onDone = _ref17.onDone;
     var app = A.useApp();
     var toast = A.useToast();
-    var _useState57 = useState({
+    var _useState59 = useState({
         date,
         end_date: date,
         allDay: true,
@@ -1368,25 +1388,25 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         note: '',
         coach_id: ''
       }),
-      _useState58 = _slicedToArray(_useState57, 2),
-      v = _useState58[0],
-      setV = _useState58[1];
-    var _useState59 = useState(null),
       _useState60 = _slicedToArray(_useState59, 2),
-      impact = _useState60[0],
-      setImpact = _useState60[1];
-    var _useState61 = useState(true),
+      v = _useState60[0],
+      setV = _useState60[1];
+    var _useState61 = useState(null),
       _useState62 = _slicedToArray(_useState61, 2),
-      removeOpen = _useState62[0],
-      setRemoveOpen = _useState62[1];
-    var _useState63 = useState(''),
+      impact = _useState62[0],
+      setImpact = _useState62[1];
+    var _useState63 = useState(true),
       _useState64 = _slicedToArray(_useState63, 2),
-      err = _useState64[0],
-      setErr = _useState64[1];
-    var _useState65 = useState(false),
+      removeOpen = _useState64[0],
+      setRemoveOpen = _useState64[1];
+    var _useState65 = useState(''),
       _useState66 = _slicedToArray(_useState65, 2),
-      busy = _useState66[0],
-      setBusy = _useState66[1];
+      err = _useState66[0],
+      setErr = _useState66[1];
+    var _useState67 = useState(false),
+      _useState68 = _slicedToArray(_useState67, 2),
+      busy = _useState68[0],
+      setBusy = _useState68[1];
     var body = () => ({
       date: v.date,
       end_date: v.end_date,
@@ -1566,26 +1586,26 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       onClose = _ref22.onClose,
       onDone = _ref22.onDone;
     var toast = A.useToast();
-    var _useState67 = useState({
+    var _useState69 = useState({
         time: slot.time,
         duration: slot.duration,
         loc_id: slot.loc_id
       }),
-      _useState68 = _slicedToArray(_useState67, 2),
-      v = _useState68[0],
-      setV = _useState68[1];
-    var _useState69 = useState('one'),
       _useState70 = _slicedToArray(_useState69, 2),
-      scope = _useState70[0],
-      setScope = _useState70[1];
-    var _useState71 = useState(false),
+      v = _useState70[0],
+      setV = _useState70[1];
+    var _useState71 = useState('one'),
       _useState72 = _slicedToArray(_useState71, 2),
-      busy = _useState72[0],
-      setBusy = _useState72[1];
-    var _useState73 = useState(''),
+      scope = _useState72[0],
+      setScope = _useState72[1];
+    var _useState73 = useState(false),
       _useState74 = _slicedToArray(_useState73, 2),
-      err = _useState74[0],
-      setErr = _useState74[1];
+      busy = _useState74[0],
+      setBusy = _useState74[1];
+    var _useState75 = useState(''),
+      _useState76 = _slicedToArray(_useState75, 2),
+      err = _useState76[0],
+      setErr = _useState76[1];
     var inSeries = slot.series_id && !slot.series_detached;
     var save = /*#__PURE__*/function () {
       var _ref23 = _asyncToGenerator(function* () {
@@ -1703,31 +1723,31 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       confirm = _A$useConfirm4[1];
     var existing = slot.reservation;
     var types = app.types.filter(t => t.active && !t.archived_at);
-    var _useState75 = useState({
+    var _useState77 = useState({
         name: existing ? existing.client_name : '',
         email: existing ? existing.client_email : '',
         note: existing ? existing.note : '',
         hours: existing ? 0 : 24
       }),
-      _useState76 = _slicedToArray(_useState75, 2),
-      v = _useState76[0],
-      setV = _useState76[1];
-    var _useState77 = useState(() => new Set(existing && existing.allowed_type_ids ? existing.allowed_type_ids : types.map(t => t.id))),
       _useState78 = _slicedToArray(_useState77, 2),
-      ids = _useState78[0],
-      setIds = _useState78[1];
-    var _useState79 = useState(null),
+      v = _useState78[0],
+      setV = _useState78[1];
+    var _useState79 = useState(() => new Set(existing && existing.allowed_type_ids ? existing.allowed_type_ids : types.map(t => t.id))),
       _useState80 = _slicedToArray(_useState79, 2),
-      link = _useState80[0],
-      setLink = _useState80[1]; // { url, expires } once a link exists to show
-    var _useState81 = useState(false),
+      ids = _useState80[0],
+      setIds = _useState80[1];
+    var _useState81 = useState(null),
       _useState82 = _slicedToArray(_useState81, 2),
-      busy = _useState82[0],
-      setBusy = _useState82[1];
-    var _useState83 = useState(''),
+      link = _useState82[0],
+      setLink = _useState82[1]; // { url, expires } once a link exists to show
+    var _useState83 = useState(false),
       _useState84 = _slicedToArray(_useState83, 2),
-      err = _useState84[0],
-      setErr = _useState84[1];
+      busy = _useState84[0],
+      setBusy = _useState84[1];
+    var _useState85 = useState(''),
+      _useState86 = _slicedToArray(_useState85, 2),
+      err = _useState86[0],
+      setErr = _useState86[1];
     var toggle = id => setIds(cur => {
       var n = new Set(cur);
       n.has(id) ? n.delete(id) : n.add(id);
@@ -1966,10 +1986,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       onClose = _ref34.onClose,
       onDone = _ref34.onDone;
     var toast = A.useToast();
-    var _useState85 = useState(false),
-      _useState86 = _slicedToArray(_useState85, 2),
-      busy = _useState86[0],
-      setBusy = _useState86[1];
+    var _useState87 = useState(false),
+      _useState88 = _slicedToArray(_useState87, 2),
+      busy = _useState88[0],
+      setBusy = _useState88[1];
     var del = /*#__PURE__*/function () {
       var _ref35 = _asyncToGenerator(function* (scope) {
         setBusy(true);

@@ -10,7 +10,9 @@
     "migrate:remote": "wrangler d1 migrations apply lsl-booking --remote",
     "deploy": "wrangler deploy",
     "test": "node test/run.mjs",
-    "test:reservations": "node test/reservations.mjs"
+    "test:reservations": "node test/reservations.mjs",
+    "test:past-booked": "node test/past-booked.mjs",
+    "test:b2b-buffer": "node test/b2b-buffer.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

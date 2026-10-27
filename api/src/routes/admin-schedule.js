@@ -238,8 +238,12 @@ export async function addB2B(env, req, user, id) {
   const db = env.DB;
   const settings = await getSettings(db);
   const s = await loadSlotFor(db, user, id);
-  const { dir } = await readJson(req);
-  const start = dir === 'before' ? toMins(s.time) - s.duration : toMins(s.time) + s.duration;
+  const { dir, buffer: rawBuffer } = await readJson(req);
+  assert(dir === 'before' || dir === 'after', 400, 'Choose before or after.');
+  // Optional gap between the two sessions: none, or 15 to 90 minutes in 15-minute steps.
+  const buffer = rawBuffer == null || rawBuffer === '' ? 0 : Number(rawBuffer);
+  assert(buffer === 0 || (Number.isInteger(buffer) && buffer >= 15 && buffer <= 90 && buffer % 15 === 0), 400, 'Buffer time must be 15 to 90 minutes, in 15-minute steps.');
+  const start = dir === 'before' ? toMins(s.time) - s.duration - buffer : toMins(s.time) + s.duration + buffer;
   assert(start >= 0 && start + s.duration <= 1440, 400, 'No room in the day for that.');
   const p = { date: s.date, time: fromMins(start), duration: s.duration, loc_id: s.loc_id, coach_id: s.coach_id, contingent: true, contingent_on: s.id };
   const r = vet([p], await daySlots(db, s.date), await rangeBlocks(db, s.date, s.date), settings, zoned(new Date(), settings.timezone).date);

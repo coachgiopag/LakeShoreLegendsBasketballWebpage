@@ -596,6 +596,7 @@ a.lsl-btn { line-height: 1; }
 
 .lsl-admcal__slotactions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
 .lsl-admcal__b2bpick { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.lsl-admcal__slotactions.is-picking { flex-shrink: 1; min-width: 0; max-width: 100%; }
 
 .lsl-admcal__slotconflict { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
   color: #922b21; background: #fdf2f2; border-radius: var(--r-sm); padding: 2px 8px; width: 100%; margin-top: 2px; }

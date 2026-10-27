@@ -73,7 +73,8 @@
     const mark = (s, status) => run(() => A.api('POST', '/api/admin/slots/' + s.id + '/mark', { status }), (r) => status === 'booked'
       ? 'Marked booked' + (r.changes && r.changes.length ? ' — ' + r.changes.length + ' conflicting opening(s) adjusted' : '')
       : 'Opening is available again').then(refresh).catch(() => {});
-    const addB2B = (s, dir) => run(() => A.api('POST', '/api/admin/slots/' + s.id + '/b2b', { dir }), 'Back-to-back opening added').then(refresh).catch(() => {});
+    const addB2B = (s, dir, buffer) => run(() => A.api('POST', '/api/admin/slots/' + s.id + '/b2b', { dir, buffer: buffer || 0 }),
+      buffer ? 'Back-to-back opening added with a ' + buffer + ' minute buffer' : 'Back-to-back opening added').then(refresh).catch(() => {});
     const remove = async (s) => {
       if (s.series_id && !s.series_detached) { setDialog({ kind: 'scope', slot: s, action: 'delete' }); return; }
       if (!(await confirm({ title: 'Delete this opening?', body: LSL.fmtDateLong(s.date) + ' at ' + LSL.fmtTime(s.time) + ' · ' + app.locName(s.loc_id), confirmLabel: 'Delete', danger: true }))) return;
@@ -220,6 +221,7 @@
   function SlotRow({ s, byId, busy, onMark, onB2B, onDelete, onEdit, onReserve }) {
     const app = A.useApp();
     const [pick, setPick] = useState(false);
+    const [buffer, setBuffer] = useState(0);
     const hard = s.conflicts.filter((c) => c.severity === 'hard');
     const soft = s.conflicts.filter((c) => c.severity !== 'hard');
     const anchor = s.contingent_on ? byId[s.contingent_on] : null;
@@ -249,15 +251,19 @@
           {soft.map((c, i) => <span key={'s' + i} className="lsl-a-conflict is-potential"><Icon name="triangle-alert" size={13} /> Potential conflict: {describe(c, byId, app)}. {s.status === 'open' ? 'If one is booked, the other is ' + (app.settings.conflictAction === 'delete' ? 'removed' : 'moved to a safe time') + '.' : ''}</span>)}
           {s.contingent && anchor && anchor.status === 'open' && <span className="lsl-admcal__slotlock"><Icon name="lock" size={11} /> Shown to families once {LSL.fmtTime(anchor.time)} is booked</span>}
         </div>
-        <div className="lsl-admcal__slotactions">
+        <div className={'lsl-admcal__slotactions' + (pick ? ' is-picking' : '')}>
           {s.status === 'open' && <button className={'lsl-btn lsl-btn--xs ' + (s.reservation ? 'lsl-btn--primary' : 'lsl-btn--ghost')} disabled={busy} onClick={() => onReserve(s)} title="Hold this time for one client and get a private sign-up link"><Icon name="user-check" /> {s.reservation ? 'Manage reservation' : 'Reserve'}</button>}
           {s.status === 'open' && <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" disabled={busy} onClick={() => onMark(s, 'booked')} title="Booked outside the website">Mark booked</button>}
           {s.manual && <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" disabled={busy} onClick={() => onMark(s, 'open')}>Mark open</button>}
           {s.status === 'open' && (pick ? (
             <span className="lsl-admcal__b2bpick">
-              <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" onClick={() => { setPick(false); onB2B(s, 'before'); }}>← Before</button>
-              <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" onClick={() => { setPick(false); onB2B(s, 'after'); }}>After →</button>
-              <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" onClick={() => setPick(false)}>Cancel</button>
+              <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" onClick={() => { setPick(false); onB2B(s, 'before', buffer); setBuffer(0); }}>← Before</button>
+              <select className="lsl-select lsl-admcal__bufsel" value={buffer} onChange={(e) => setBuffer(+e.target.value)} aria-label="Add buffer time?">
+                <option value={0}>Add buffer time?</option>
+                {[15, 30, 45, 60, 75, 90].map((m) => <option key={m} value={m}>{m} min buffer</option>)}
+              </select>
+              <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" onClick={() => { setPick(false); onB2B(s, 'after', buffer); setBuffer(0); }}>After →</button>
+              <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" onClick={() => { setPick(false); setBuffer(0); }}>Cancel</button>
             </span>
           ) : <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" onClick={() => setPick(true)}><Icon name="repeat-2" /> Add B2B</button>)}
           {s.status === 'open' && <button className="lsl-a-iconbtn" onClick={() => onEdit(s)} aria-label={'Edit ' + LSL.fmtTime(s.time) + ' opening'}><Icon name="pencil" /></button>}
