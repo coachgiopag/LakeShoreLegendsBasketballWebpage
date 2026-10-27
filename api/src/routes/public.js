@@ -51,6 +51,20 @@ export async function publicSlots(db, settings) {
   return out;
 }
 
+/** Sessions that already happened, so the calendar looks as busy as it really was.
+    Real ones only: confirmed/completed bookings, plus times the coach marked booked by hand.
+    Never open times, held checkouts, or canceled bookings. Shown as booked, with no names. */
+const PAST_DAYS = 92;
+export async function pastBookedSlots(db, settings) {
+  const today = zoned(new Date(), settings.timezone).date;
+  const locs = await all(db, 'SELECT id FROM locations WHERE active = 1');
+  const activeLoc = new Set(locs.map((l) => l.id));
+  const rows = await all(db, `SELECT s.id, s.date, s.time, s.duration, s.loc_id FROM slots s LEFT JOIN bookings b ON b.id = s.booking_id
+    WHERE s.status = 'booked' AND s.date >= ? AND s.date < ? AND (b.id IS NULL OR b.status IN ('confirmed', 'completed'))
+    ORDER BY s.date, s.time`, addDays(today, -PAST_DAYS), today);
+  return rows.filter((s) => activeLoc.has(s.loc_id)).map((s) => ({ id: s.id, date: s.date, time: s.time, duration: s.duration, locId: s.loc_id, status: 'booked', past: true }));
+}
+
 export async function catalog(env) {
   const db = env.DB;
   const settings = await getSettings(db);
@@ -64,7 +78,7 @@ export async function catalog(env) {
     types: types.map(publicType),
     locations: locs.map((l) => ({ id: l.id, name: l.name, eligible_type_ids: parseJson(l.eligible_type_ids, null) })),
     packages: pkgs.map((p) => ({ ...p, eligible_type_ids: parseJson(p.eligible_type_ids, null), pay_link: undefined, purchasable: !!p.pay_link })),
-    slots: await publicSlots(db, settings),
+    slots: [...(await pastBookedSlots(db, settings)), ...(await publicSlots(db, settings))],
   }, 200, { 'Cache-Control': 'no-store' });
 }
 

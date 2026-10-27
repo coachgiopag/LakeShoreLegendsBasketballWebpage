@@ -365,6 +365,11 @@ a.lsl-btn { line-height: 1; }
 .lsl-cal__cell.is-sel { background: var(--legend-navy); color: #fff; }
 .lsl-cal__dot { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: var(--legend-orange); }
 .lsl-cal__cell.is-sel .lsl-cal__dot { background: #fff; }
+.lsl-cal__cell.is-past { color: var(--fg2); cursor: pointer; }
+.lsl-cal__cell.is-past:hover { background: var(--navy-100, #e8eef5); }
+.lsl-cal__cell.is-past.is-sel, .lsl-cal__cell.is-past.is-sel:hover { background: var(--legend-navy); color: #fff; }
+.lsl-cal__dot.lsl-cal__dot--past { background: var(--navy-400, #6f87a6); }
+.lsl-cal__cell.is-sel .lsl-cal__dot.lsl-cal__dot--past { background: #fff; }
 
 .lsl-times__day { font-family: var(--font-display); font-size: 15px; color: var(--fg1); margin-bottom: 14px; }
 .lsl-times__group { margin-bottom: 16px; }

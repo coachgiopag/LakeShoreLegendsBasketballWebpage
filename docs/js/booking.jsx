@@ -90,6 +90,10 @@ function PrivateBooking() {
 
   // A reserved time is listed (marked Reserved) so families can see it is taken, but only open times count as bookable.
   const openDates = new Set(allSlots.filter((s) => (s.status === 'open' || s.status === 'reserved') && (!locFilter || s.locId === locFilter)).map((s) => s.date));
+  // Days that already passed show the sessions that really were booked (bookable times never include these).
+  const pastDates = new Set(allSlots.filter((s) => s.past && (!locFilter || s.locId === locFilter)).map((s) => s.date));
+  const [cy, cm] = todayIso.split('-').map(Number);
+  const minOffset = pastDates.size ? Math.min(0, ...[...pastDates].map((d) => { const [y, m] = d.split('-').map(Number); return (y - cy) * 12 + (m - cm); })) : 0;
   const daySlots = date
     ? allSlots.filter((s) => s.date === date && (!locFilter || s.locId === locFilter)).sort((a, b) => a.time.localeCompare(b.time))
     : [];
@@ -172,7 +176,7 @@ function PrivateBooking() {
                 )}
               </div>
             )}
-            <Calendar offset={offset} onOffset={setOffset} openDates={openDates} selected={date} onPick={pickDate} todayIso={todayIso} />
+            <Calendar offset={offset} onOffset={setOffset} openDates={openDates} pastDates={pastDates} minOffset={minOffset} selected={date} onPick={pickDate} todayIso={todayIso} />
           </div>
 
           <div className="lsl-sched__col lsl-sched__col--border">
@@ -302,7 +306,7 @@ function ReservationNotice({ rsv }) {
   );
 }
 
-function Calendar({ offset, onOffset, openDates, selected, onPick, todayIso }) {
+function Calendar({ offset, onOffset, openDates, pastDates, minOffset, selected, onPick, todayIso }) {
   useEffectBk(() => { if (window.lucide) window.lucide.createIcons(); });
   const [ty, tm] = todayIso.split('-').map(Number);
   const base = new Date(ty, tm - 1 + offset, 1);
@@ -318,7 +322,7 @@ function Calendar({ offset, onOffset, openDates, selected, onPick, todayIso }) {
   return (
     <div className="lsl-cal">
       <div className="lsl-cal__nav">
-        <button onClick={() => onOffset(Math.max(0, offset - 1))} disabled={offset <= 0} aria-label="Previous month"><i data-lucide="chevron-left"></i></button>
+        <button onClick={() => onOffset(Math.max(minOffset, offset - 1))} disabled={offset <= minOffset} aria-label="Previous month"><i data-lucide="chevron-left"></i></button>
         <span className="lsl-cal__month" aria-live="polite">{monthName}</span>
         <button onClick={() => onOffset(offset + 1)} aria-label="Next month"><i data-lucide="chevron-right"></i></button>
       </div>
@@ -327,13 +331,15 @@ function Calendar({ offset, onOffset, openDates, selected, onPick, todayIso }) {
         {cells.map((d, i) => {
           if (d === null) return <span key={'b' + i} className="lsl-cal__cell is-empty"></span>;
           const iso = y + '-' + pad2(m + 1) + '-' + pad2(d);
-          const can = openDates.has(iso) && iso >= todayIso;
+          const upcoming = openDates.has(iso) && iso >= todayIso;
+          const past = !upcoming && iso < todayIso && pastDates.has(iso);
+          const can = upcoming || past;
           return (
-            <button key={iso} disabled={!can} aria-label={LSL.fmtDateLong(iso) + (can ? ', has open times' : '')} aria-pressed={selected === iso}
-              className={'lsl-cal__cell' + (can ? ' is-open' : '') + (selected === iso ? ' is-sel' : '')}
+            <button key={iso} disabled={!can} aria-label={LSL.fmtDateLong(iso) + (upcoming ? ', has open times' : past ? ', had booked sessions' : '')} aria-pressed={selected === iso}
+              className={'lsl-cal__cell' + (upcoming ? ' is-open' : '') + (past ? ' is-past' : '') + (selected === iso ? ' is-sel' : '')}
               onClick={() => can && onPick(iso)}>
               {d}
-              {can && <span className="lsl-cal__dot"></span>}
+              {can && <span className={'lsl-cal__dot' + (past ? ' lsl-cal__dot--past' : '')}></span>}
             </button>
           );
         })}

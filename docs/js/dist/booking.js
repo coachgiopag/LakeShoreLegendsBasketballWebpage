@@ -159,6 +159,19 @@ function PrivateBooking() {
 
   // A reserved time is listed (marked Reserved) so families can see it is taken, but only open times count as bookable.
   var openDates = new Set(allSlots.filter(s => (s.status === 'open' || s.status === 'reserved') && (!locFilter || s.locId === locFilter)).map(s => s.date));
+  // Days that already passed show the sessions that really were booked (bookable times never include these).
+  var pastDates = new Set(allSlots.filter(s => s.past && (!locFilter || s.locId === locFilter)).map(s => s.date));
+  var _todayIso$split$map = todayIso.split('-').map(Number),
+    _todayIso$split$map2 = _slicedToArray(_todayIso$split$map, 2),
+    cy = _todayIso$split$map2[0],
+    cm = _todayIso$split$map2[1];
+  var minOffset = pastDates.size ? Math.min(0, ...[...pastDates].map(d => {
+    var _d$split$map = d.split('-').map(Number),
+      _d$split$map2 = _slicedToArray(_d$split$map, 2),
+      y = _d$split$map2[0],
+      m = _d$split$map2[1];
+    return (y - cy) * 12 + (m - cm);
+  })) : 0;
   var daySlots = date ? allSlots.filter(s => s.date === date && (!locFilter || s.locId === locFilter)).sort((a, b) => a.time.localeCompare(b.time)) : [];
   var byLoc = {};
   daySlots.forEach(s => {
@@ -320,6 +333,8 @@ function PrivateBooking() {
     offset: offset,
     onOffset: setOffset,
     openDates: openDates,
+    pastDates: pastDates,
+    minOffset: minOffset,
     selected: date,
     onPick: pickDate,
     todayIso: todayIso
@@ -491,16 +506,18 @@ function Calendar(_ref3) {
   var offset = _ref3.offset,
     onOffset = _ref3.onOffset,
     openDates = _ref3.openDates,
+    pastDates = _ref3.pastDates,
+    minOffset = _ref3.minOffset,
     selected = _ref3.selected,
     onPick = _ref3.onPick,
     todayIso = _ref3.todayIso;
   useEffectBk(() => {
     if (window.lucide) window.lucide.createIcons();
   });
-  var _todayIso$split$map = todayIso.split('-').map(Number),
-    _todayIso$split$map2 = _slicedToArray(_todayIso$split$map, 2),
-    ty = _todayIso$split$map2[0],
-    tm = _todayIso$split$map2[1];
+  var _todayIso$split$map3 = todayIso.split('-').map(Number),
+    _todayIso$split$map4 = _slicedToArray(_todayIso$split$map3, 2),
+    ty = _todayIso$split$map4[0],
+    tm = _todayIso$split$map4[1];
   var base = new Date(ty, tm - 1 + offset, 1);
   var y = base.getFullYear(),
     m = base.getMonth();
@@ -519,8 +536,8 @@ function Calendar(_ref3) {
   }, /*#__PURE__*/React.createElement("div", {
     className: "lsl-cal__nav"
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => onOffset(Math.max(0, offset - 1)),
-    disabled: offset <= 0,
+    onClick: () => onOffset(Math.max(minOffset, offset - 1)),
+    disabled: offset <= minOffset,
     "aria-label": "Previous month"
   }, /*#__PURE__*/React.createElement("i", {
     "data-lucide": "chevron-left"
@@ -544,16 +561,18 @@ function Calendar(_ref3) {
       className: "lsl-cal__cell is-empty"
     });
     var iso = y + '-' + pad2(m + 1) + '-' + pad2(d);
-    var can = openDates.has(iso) && iso >= todayIso;
+    var upcoming = openDates.has(iso) && iso >= todayIso;
+    var past = !upcoming && iso < todayIso && pastDates.has(iso);
+    var can = upcoming || past;
     return /*#__PURE__*/React.createElement("button", {
       key: iso,
       disabled: !can,
-      "aria-label": LSL.fmtDateLong(iso) + (can ? ', has open times' : ''),
+      "aria-label": LSL.fmtDateLong(iso) + (upcoming ? ', has open times' : past ? ', had booked sessions' : ''),
       "aria-pressed": selected === iso,
-      className: 'lsl-cal__cell' + (can ? ' is-open' : '') + (selected === iso ? ' is-sel' : ''),
+      className: 'lsl-cal__cell' + (upcoming ? ' is-open' : '') + (past ? ' is-past' : '') + (selected === iso ? ' is-sel' : ''),
       onClick: () => can && onPick(iso)
     }, d, can && /*#__PURE__*/React.createElement("span", {
-      className: "lsl-cal__dot"
+      className: 'lsl-cal__dot' + (past ? ' lsl-cal__dot--past' : '')
     }));
   })));
 }
