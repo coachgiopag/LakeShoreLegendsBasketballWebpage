@@ -5,6 +5,7 @@ import { hardConflictsFor, blockHits } from '../lib/schedule.js';
 import { claimSlot, confirmBooking, expireHolds, resolveFamily, snapshotFor, bookingInsert } from '../lib/bookings.js';
 import { checkoutUrl } from '../lib/stripe.js';
 import { notifyBooking, coachAlert } from '../lib/notify.js';
+import { flagReserved, loadByToken } from '../lib/reservations.js';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const playersNum = (p) => (p == null || p === '' ? 1 : parseInt(String(p), 10) || 1);
@@ -27,7 +28,7 @@ export async function publicSlots(db, settings) {
   const earliest = now.getTime() + settings.minNoticeHours * 3600000;
   const locs = await all(db, 'SELECT id FROM locations WHERE active = 1');
   const activeLoc = new Set(locs.map((l) => l.id));
-  const slots = await all(db, 'SELECT * FROM slots WHERE date >= ? AND date <= ? ORDER BY date, time', today, until);
+  const slots = await flagReserved(db, await all(db, 'SELECT * FROM slots WHERE date >= ? AND date <= ? ORDER BY date, time', today, until), today, until);
   const blocks = await all(db, 'SELECT * FROM blocks WHERE end_date >= ? AND date <= ?', today, until);
   const byId = Object.fromEntries(slots.map((s) => [s.id, s]));
   const byDate = {};
@@ -36,6 +37,8 @@ export async function publicSlots(db, settings) {
   for (const s of slots) {
     if (!activeLoc.has(s.loc_id)) continue;
     if (s.status !== 'open') { out.push({ id: s.id, date: s.date, time: s.time, duration: s.duration, locId: s.loc_id, status: 'booked' }); continue; }
+    // Coach-reserved for one client: shown on the calendar, bookable only through that client's link.
+    if (s.reserved) { out.push({ id: s.id, date: s.date, time: s.time, duration: s.duration, locId: s.loc_id, status: 'reserved' }); continue; }
     if (s.contingent) {
       const anchor = s.contingent_on && byId[s.contingent_on];
       if (!anchor || anchor.status === 'open') continue;
@@ -88,10 +91,25 @@ export async function createBooking(env, req, ctx) {
   await expireHolds(env, db, settings);
   const form = validateForm(settings, body.form || {}, body.acks);
 
+  // A reservation link (coach-reserved time) lets one client book that exact opening.
+  let reservation = null;
+  if (body.reserveToken) {
+    const found = await loadByToken(db, body.reserveToken);
+    assert(found.state === 'ok', 409, found.state === 'used' ? 'This reserved time has already been booked.' : 'This reservation link has expired. Please contact Coach Gio.');
+    reservation = found.reservation;
+    assert(!body.slotId || body.slotId === reservation.slot_id, 400, 'This link is for a different time.');
+    body.slotId = reservation.slot_id;
+  }
+
   const type = await first(db, 'SELECT * FROM session_types WHERE id = ? AND active = 1 AND archived_at IS NULL', body.typeId);
   assert(type, 400, 'That session type is not available.');
+  if (reservation) {
+    const allowed = parseJson(reservation.allowed_type_ids, null);
+    assert(!allowed || allowed.includes(type.id), 400, 'That session type is not available for this reserved time.');
+  }
   const slot = await first(db, 'SELECT * FROM slots WHERE id = ?', body.slotId);
   assert(slot && slot.status === 'open', 409, 'Sorry — that opening was just taken. Please pick another time.');
+  if (reservation) assert(localToInstant(slot.date, slot.time, settings.timezone).getTime() > Date.now(), 409, 'That time has already passed.');
   const loc = await first(db, 'SELECT * FROM locations WHERE id = ? AND active = 1', slot.loc_id);
   assert(loc, 409, 'That location is no longer available.');
   const typeLocs = parseJson(type.eligible_loc_ids, null);
@@ -104,9 +122,12 @@ export async function createBooking(env, req, ctx) {
   assert(players >= type.min_participants && players <= Math.max(type.max_participants, type.min_participants), 400,
     `This session is for ${type.min_participants === type.max_participants ? type.min_participants : type.min_participants + '–' + type.max_participants} participant(s).`);
 
-  // Window + visibility re-checked on the server.
-  const visible = await publicSlots(db, settings);
-  assert(visible.some((s) => s.id === slot.id && s.status === 'open'), 409, 'Sorry — that time is no longer available. Please pick another time.');
+  // Window + visibility re-checked on the server. (A reserved time skips the public
+  // notice window; the coach chose it. Collisions are still re-checked in claimSlot.)
+  if (!reservation) {
+    const visible = await publicSlots(db, settings);
+    assert(visible.some((s) => s.id === slot.id && s.status === 'open'), 409, 'Sorry — that time is no longer available. Please pick another time.');
+  }
 
   const roster = [{ name: form.athlete, primary: true }, ...(Array.isArray(body.roster) ? body.roster : [])
     .filter((m) => m && (clean(m.name) || clean(m.contact))).slice(0, 20).map((m) => ({ name: clean(m.name, 200), contact: clean(m.contact, 200) }))];
@@ -115,7 +136,7 @@ export async function createBooking(env, req, ctx) {
   const id = 'bk' + uid(10);
   const snapshot = snapshotFor({ ...type, duration: slot.duration || type.duration }, loc, coach, settings);
 
-  if (type.booking_mode === 'request') {
+  if (type.booking_mode === 'request' && !reservation) {
     const { cols, vals } = bookingInsert(db, {
       id, kind: 'request', status: 'requested', payment_status: 'unpaid', family_id: familyId, athlete_id: athleteId, type_id: type.id,
       snapshot, players: String(body.players || players), roster, form,
@@ -140,9 +161,10 @@ export async function createBooking(env, req, ctx) {
   };
   let bk = await claimSlot(env, db, settings, { slot, booking, slotStatus: payToConfirm ? 'held' : 'booked', familyStmts: stmts, actor: 'family' });
   if (!payToConfirm && type.pay_link) bk = await confirmBooking(env, db, settings, id, 'system', 'confirm_then_pay');
+  if (reservation) await bookingEvent(db, id, 'family', 'reservation_used', { reservation_id: reservation.id, reserved_for: reservation.client_name }).run();
   ctx.waitUntil(coachAlert(env, db, settings, 'New booking — ' + form.athlete + ' · ' + slot.date + ' ' + slot.time,
-    [snapshot.service_name, slot.date + ' ' + slot.time + ' · ' + loc.name, 'Parent: ' + form.parent + ' · ' + form.email + ' · ' + form.phone,
-      payToConfirm ? 'Status: held until ' + holdUntil + ' pending Stripe payment' : 'Status: ' + bk.status].join('\n'), 'coach_alert:' + id));
+    [reservation ? 'Reserved time for ' + reservation.client_name : null, snapshot.service_name, slot.date + ' ' + slot.time + ' · ' + loc.name, 'Parent: ' + form.parent + ' · ' + form.email + ' · ' + form.phone,
+      payToConfirm ? 'Status: held until ' + holdUntil + ' pending Stripe payment' : 'Status: ' + bk.status].filter(Boolean).join('\n'), 'coach_alert:' + id));
   return json({
     booking: summary(bk),
     checkoutUrl: type.pay_link ? checkoutUrl(type.pay_link, id, form.email) : null,
@@ -203,4 +225,23 @@ export async function packageCheckout(env, req) {
   await db.batch([...stmts, db.prepare(`INSERT INTO family_packages (id, family_id, package_id, snapshot, status, credits_total, checkout_ref, created_at)
     VALUES (?,?,?,?, 'pending_payment', ?, ?, ?)`).bind(fpId, familyId, pkg.id, JSON.stringify(pkg), pkg.credits, fpId, t)]);
   return json({ checkoutUrl: checkoutUrl(pkg.pay_link, fpId, form.email) }, 201);
+}
+
+/** What a client sees when they open a reservation link. Never exposes coach notes or email. */
+export async function reservationLookup(env, token) {
+  const db = env.DB;
+  const settings = await getSettings(db);
+  await expireHolds(env, db, settings);
+  const { reservation: r, state } = await loadByToken(db, token);
+  const slot = await first(db, 'SELECT * FROM slots WHERE id = ?', r.slot_id);
+  const types = await all(db, 'SELECT id FROM session_types WHERE active = 1 AND archived_at IS NULL');
+  const allowed = parseJson(r.allowed_type_ids, null);
+  const ok = state === 'ok' && slot && slot.status === 'open';
+  return json({
+    state: state === 'ok' && !ok ? 'unavailable' : state,
+    client_name: r.client_name,
+    expires_at: r.expires_at,
+    slot: slot && ok ? { id: slot.id, date: slot.date, time: slot.time, duration: slot.duration, locId: slot.loc_id } : null,
+    allowed_type_ids: allowed ? allowed.filter((id) => types.some((t) => t.id === id)) : types.map((t) => t.id),
+  }, 200, { 'Cache-Control': 'no-store' });
 }

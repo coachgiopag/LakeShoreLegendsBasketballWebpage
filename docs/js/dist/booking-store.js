@@ -30,6 +30,32 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
   var loaded = false,
     error = null,
     inflight = null;
+
+  /* Coach-reserved time: a private ?reserve=<token> link. state is one of
+     loading | ok | used | expired | revoked | unavailable | invalid | error. */
+  var reserveToken = null;
+  try {
+    reserveToken = new URLSearchParams(location.search).get('reserve') || null;
+  } catch (e) {/* no query string */}
+  var reservation = reserveToken ? {
+      state: 'loading'
+    } : null,
+    rsvInflight = null;
+  function loadReservation() {
+    if (!reserveToken) return Promise.resolve();
+    if (rsvInflight) return rsvInflight;
+    rsvInflight = request('GET', '/api/public/reservations/' + encodeURIComponent(reserveToken)).then(d => {
+      reservation = d;
+    }).catch(e => {
+      reservation = {
+        state: e.status === 404 ? 'invalid' : 'error'
+      };
+    }).finally(() => {
+      rsvInflight = null;
+      window.dispatchEvent(new CustomEvent('lsl-synced'));
+    });
+    return rsvInflight;
+  }
   function request(_x, _x2, _x3, _x4) {
     return _request.apply(this, arguments);
   }
@@ -201,7 +227,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
   var LSL = {
     api: request,
     load,
-    refresh: load,
+    refresh: () => Promise.all([load(), loadReservation()]),
+    reserveToken,
+    getReservation: () => reservation,
     isLoaded: () => loaded,
     loadError: () => error,
     getTypes: () => cache.types,
@@ -237,5 +265,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
   window.LSL = LSL;
   // The build-time page snapshot (scripts/prerender.mjs) must not bake openings into the HTML.
   window.LSL_PRERENDER = /HeadlessEdg|HeadlessChrome|LSL-Prerender/i.test(navigator.userAgent || '');
-  if (!window.LSL_ADMIN && !window.LSL_PRERENDER) load();
+  if (!window.LSL_ADMIN && !window.LSL_PRERENDER) {
+    load();
+    loadReservation();
+  }
 })();

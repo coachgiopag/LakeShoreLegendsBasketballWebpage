@@ -9,6 +9,25 @@
   const cache = { types: [], locs: [], slots: [], packages: [], settings: null, today: null };
   let loaded = false, error = null, inflight = null;
 
+  /* Coach-reserved time: a private ?reserve=<token> link. state is one of
+     loading | ok | used | expired | revoked | unavailable | invalid | error. */
+  let reserveToken = null;
+  try { reserveToken = new URLSearchParams(location.search).get('reserve') || null; } catch (e) { /* no query string */ }
+  let reservation = reserveToken ? { state: 'loading' } : null, rsvInflight = null;
+  function loadReservation() {
+    if (!reserveToken) return Promise.resolve();
+    if (rsvInflight) return rsvInflight;
+    rsvInflight = request('GET', '/api/public/reservations/' + encodeURIComponent(reserveToken)).then((d) => {
+      reservation = d;
+    }).catch((e) => {
+      reservation = { state: e.status === 404 ? 'invalid' : 'error' };
+    }).finally(() => {
+      rsvInflight = null;
+      window.dispatchEvent(new CustomEvent('lsl-synced'));
+    });
+    return rsvInflight;
+  }
+
   async function request(method, path, body, token) {
     let res;
     try {
@@ -104,7 +123,8 @@
 
   const LSL = {
     api: request,
-    load, refresh: load,
+    load, refresh: () => Promise.all([load(), loadReservation()]),
+    reserveToken, getReservation: () => reservation,
     isLoaded: () => loaded, loadError: () => error,
     getTypes: () => cache.types,
     getLocs: () => cache.locs,
@@ -122,5 +142,5 @@
   window.LSL = LSL;
   // The build-time page snapshot (scripts/prerender.mjs) must not bake openings into the HTML.
   window.LSL_PRERENDER = /HeadlessEdg|HeadlessChrome|LSL-Prerender/i.test(navigator.userAgent || '');
-  if (!window.LSL_ADMIN && !window.LSL_PRERENDER) load();
+  if (!window.LSL_ADMIN && !window.LSL_PRERENDER) { load(); loadReservation(); }
 })();

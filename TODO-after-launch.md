@@ -34,6 +34,11 @@ Resend verified; DNS now on Cloudflare; emails send from bookings@lakeshorelegen
 - Booking or marking a slot Booked bumps or deletes conflicting slots at other locations (per Settings), including their back-to-back slots; marking it Open reverts only what that action changed.
 - "Add B2B" never creates a duplicate slot at a time and location that already has one.
 
+## 6. Reserved times (built, not deployed)
+Coach reserves an opening for one client and sends them a private link (branch `claude/reserved-times`).
+- [ ] Test on staging: `npm run migrate:staging && npm run deploy:staging` in `api/`, then follow the "Reserved times" steps in `api/DEPLOY.md`.
+- [ ] After staging passes: production migration + deploy, then merge the site changes (Worker first).
+
 ## Done
 - [x] Stripe post-payment page: new live Payment Links send families back to training.html (9/28).
 - [x] Group sessions priced per athlete; each family pays its own share (9/28).

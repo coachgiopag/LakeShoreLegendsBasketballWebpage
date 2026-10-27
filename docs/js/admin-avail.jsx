@@ -61,7 +61,8 @@
 
     const daySlots = (byDate[sel] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
     const dayBlocks = blocksOn(sel);
-    const open = daySlots.filter((s) => s.status === 'open');
+    const open = daySlots.filter((s) => s.status === 'open' && !s.reservation);
+    const reserved = daySlots.filter((s) => s.status === 'open' && s.reservation);
     const live = daySlots.filter((s) => s.status !== 'open');
     const hours = live.reduce((n, s) => n + (s.duration || 60), 0) / 60;
     const hardCount = daySlots.filter((s) => s.conflicts.some((c) => c.severity === 'hard')).length;
@@ -84,9 +85,9 @@
     };
 
     const dayLabel = (iso, ds, bl) => {
-      const o = ds.filter((s) => s.status === 'open').length, b = ds.filter((s) => s.status !== 'open').length;
+      const o = ds.filter((s) => s.status === 'open' && !s.reservation).length, b = ds.filter((s) => s.status !== 'open').length, rv = ds.filter((s) => s.status === 'open' && s.reservation).length;
       const c = ds.some((s) => s.conflicts.length);
-      return [LSL.fmtDateLong(iso), o && o + ' open', b && b + ' booked', ds.some((s) => s.contingent) && 'back-to-back openings', c && 'has conflicts', bl.length && 'blocked time'].filter(Boolean).join(', ');
+      return [LSL.fmtDateLong(iso), o && o + ' open', rv && rv + ' reserved', b && b + ' booked', ds.some((s) => s.contingent) && 'back-to-back openings', c && 'has conflicts', bl.length && 'blocked time'].filter(Boolean).join(', ');
     };
 
     return (
@@ -124,7 +125,8 @@
                 const iso = ym.y + '-' + pad2(ym.m + 1) + '-' + pad2(day);
                 const ds = byDate[iso] || [];
                 const bl = blocksOn(iso);
-                const hasOpen = ds.some((s) => s.status === 'open' && !s.contingent);
+                const hasOpen = ds.some((s) => s.status === 'open' && !s.contingent && !s.reservation);
+                const hasReserved = ds.some((s) => s.status === 'open' && s.reservation);
                 const hasBooked = ds.some((s) => s.status === 'booked');
                 const hasHeld = ds.some((s) => s.status === 'held');
                 const hasB2B = ds.some((s) => s.contingent);
@@ -136,6 +138,7 @@
                     <span className="lsl-admcal__daynum">{day}</span>
                     <span className="lsl-admcal__dots" aria-hidden="true">
                       {hasOpen && <span className="lsl-admcal__dot lsl-admcal__dot--open" />}
+                      {hasReserved && <span className="lsl-admcal__dot lsl-admcal__dot--reserved" />}
                       {hasHeld && <span className="lsl-admcal__dot lsl-admcal__dot--held" />}
                       {hasBooked && <span className="lsl-admcal__dot lsl-admcal__dot--booked" />}
                       {hasB2B && <span className="lsl-admcal__dot lsl-admcal__dot--b2b" />}
@@ -147,6 +150,7 @@
             </div>
             <div className="lsl-admcal__legend">
               <span><span className="lsl-admcal__dot lsl-admcal__dot--open" /> Open</span>
+              <span><span className="lsl-admcal__dot lsl-admcal__dot--reserved" /> Reserved</span>
               <span><span className="lsl-admcal__dot lsl-admcal__dot--held" /> Held</span>
               <span><span className="lsl-admcal__dot lsl-admcal__dot--booked" /> Booked</span>
               <span><span className="lsl-admcal__dot lsl-admcal__dot--b2b" /> B2B</span>
@@ -165,6 +169,7 @@
               <>
                 <div className="lsl-a-daysum" aria-label="Day summary">
                   <div className="lsl-a-stat"><b>{open.length}</b><span>Open</span></div>
+                  {reserved.length > 0 && <div className="lsl-a-stat"><b>{reserved.length}</b><span>Reserved</span></div>}
                   <div className="lsl-a-stat"><b>{live.length}</b><span>Booked</span></div>
                   <div className="lsl-a-stat"><b>{hours % 1 ? hours.toFixed(1) : hours}</b><span>Training hrs</span></div>
                   {hardCount > 0 && <div className="lsl-a-stat is-alert"><b>{hardCount}</b><span>Double-booked</span></div>}
@@ -185,7 +190,7 @@
                 {Object.entries(byLoc).map(([lid, ls]) => (
                   <div key={lid} className="lsl-admcal__locgroup">
                     <div className="lsl-admcal__locname"><Icon name="map-pin" size={12} /> {app.locName(lid)}</div>
-                    {ls.map((s) => <SlotRow key={s.id} s={s} byId={byId} busy={busy} onMark={mark} onB2B={addB2B} onDelete={remove} onEdit={(x) => setDialog({ kind: 'edit', slot: x })} />)}
+                    {ls.map((s) => <SlotRow key={s.id} s={s} byId={byId} busy={busy} onMark={mark} onB2B={addB2B} onDelete={remove} onEdit={(x) => setDialog({ kind: 'edit', slot: x })} onReserve={(x) => setDialog({ kind: 'reserve', slot: x })} />)}
                   </div>
                 ))}
 
@@ -206,12 +211,13 @@
         {dialog && dialog.kind === 'copy' && <CopyDialog date={sel} locs={activeLocs} onClose={() => setDialog(null)} onDone={refresh} />}
         {dialog && dialog.kind === 'block' && <BlockDialog date={sel} multiCoach={multiCoach} onClose={() => setDialog(null)} onDone={refresh} />}
         {dialog && dialog.kind === 'edit' && <EditSlotDialog slot={dialog.slot} locs={activeLocs} onClose={() => setDialog(null)} onDone={refresh} />}
+        {dialog && dialog.kind === 'reserve' && <ReservationDialog slot={dialog.slot} onClose={() => setDialog(null)} onDone={refresh} />}
         {dialog && dialog.kind === 'scope' && <ScopeDeleteDialog slot={dialog.slot} onClose={() => setDialog(null)} onDone={refresh} />}
       </div>
     );
   }
 
-  function SlotRow({ s, byId, busy, onMark, onB2B, onDelete, onEdit }) {
+  function SlotRow({ s, byId, busy, onMark, onB2B, onDelete, onEdit, onReserve }) {
     const app = A.useApp();
     const [pick, setPick] = useState(false);
     const hard = s.conflicts.filter((c) => c.severity === 'hard');
@@ -221,9 +227,10 @@
     const status = s.status === 'held'
       ? <Badge tone="warn" icon="hourglass">Held · awaiting payment</Badge>
       : s.status === 'booked' ? <Badge tone="orange" icon="calendar-check">{s.manual ? 'Booked (manual)' : 'Booked'}</Badge>
-        : <Badge tone="outline" icon="circle">Open</Badge>;
+        : s.reservation ? <Badge tone="sky" icon="user-check" title={'Reserved for ' + s.reservation.client_name + ' until ' + A.stamp(s.reservation.expires_at)}>Reserved · {s.reservation.client_name}</Badge>
+          : <Badge tone="outline" icon="circle">Open</Badge>;
     return (
-      <div className={'lsl-admcal__slot' + (s.contingent ? ' is-b2b' : '') + (s.status === 'booked' ? ' is-booked' : '') + (s.status === 'held' ? ' is-held' : '') + (hard.length ? ' has-hard' : '')}>
+      <div className={'lsl-admcal__slot' + (s.reservation ? ' is-reserved' : '') + (s.contingent ? ' is-b2b' : '') + (s.status === 'booked' ? ' is-booked' : '') + (s.status === 'held' ? ' is-held' : '') + (hard.length ? ' has-hard' : '')}>
         <div className="lsl-admcal__slotmain">
           <span className="lsl-admcal__slottime">{LSL.fmtTime(s.time)}</span>
           <span className="lsl-a-muted lsl-a-small">– {LSL.fmtTime(end)} · {s.duration} min</span>
@@ -231,6 +238,7 @@
           {s.contingent && <Badge tone="sky" icon="repeat-2">B2B</Badge>}
           {s.series_id && <Badge tone="muted" icon="repeat" title={s.series_detached ? 'Edited separately from its series' : 'Part of a recurring series'}>{s.series_detached ? 'Edited' : 'Weekly'}</Badge>}
           {s.coach_id && app.coaches.length > 1 && <Badge tone="muted" icon="user">{app.coachName(s.coach_id)}</Badge>}
+          {s.reservation && <span className="lsl-a-muted lsl-a-small">held until {A.stamp(s.reservation.expires_at)}</span>}
           {s.booking && (
             <button className="lsl-a-slotbooking" onClick={() => app.openBooking(s.booking_id)}>
               <Icon name="user" /> {s.booking.athlete} · {s.booking.service}
@@ -242,6 +250,7 @@
           {s.contingent && anchor && anchor.status === 'open' && <span className="lsl-admcal__slotlock"><Icon name="lock" size={11} /> Shown to families once {LSL.fmtTime(anchor.time)} is booked</span>}
         </div>
         <div className="lsl-admcal__slotactions">
+          {s.status === 'open' && <button className={'lsl-btn lsl-btn--xs ' + (s.reservation ? 'lsl-btn--primary' : 'lsl-btn--ghost')} disabled={busy} onClick={() => onReserve(s)} title="Hold this time for one client and get a private sign-up link"><Icon name="user-check" /> {s.reservation ? 'Manage reservation' : 'Reserve'}</button>}
           {s.status === 'open' && <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" disabled={busy} onClick={() => onMark(s, 'booked')} title="Booked outside the website">Mark booked</button>}
           {s.manual && <button className="lsl-btn lsl-btn--ghost lsl-btn--xs" disabled={busy} onClick={() => onMark(s, 'open')}>Mark open</button>}
           {s.status === 'open' && (pick ? (
@@ -584,6 +593,96 @@
             <label className="lsl-a-check" style={{ display: 'flex' }}><input type="radio" name="scope" checked={scope === 'future'} onChange={() => setScope('future')} /> This and future occurrences (booked ones stay as they are)</label>
           </fieldset>
         )}
+        {err && <A.Banner tone="danger">{err}</A.Banner>}
+      </Dialog>
+    );
+  }
+
+  /* Reserve an opening for one named client, or manage an existing reservation.
+     The sign-up link is shown once (only a hash is stored); "New link" replaces it. */
+  const HOLD_CHOICES = [[24, '24 hours'], [48, '48 hours'], [72, '3 days'], [168, '7 days']];
+  const reserveLink = (token) => location.origin + '/training.html?reserve=' + encodeURIComponent(token) + (window.LSL_API_NAME === 'staging' ? '&api=staging' : '');
+
+  function ReservationDialog({ slot, onClose, onDone }) {
+    const app = A.useApp();
+    const toast = A.useToast();
+    const [confirmUi, confirm] = A.useConfirm();
+    const existing = slot.reservation;
+    const types = app.types.filter((t) => t.active && !t.archived_at);
+    const [v, setV] = useState({ name: existing ? existing.client_name : '', email: existing ? existing.client_email : '', note: existing ? existing.note : '', hours: existing ? 0 : 24 });
+    const [ids, setIds] = useState(() => new Set(existing && existing.allowed_type_ids ? existing.allowed_type_ids : types.map((t) => t.id)));
+    const [link, setLink] = useState(null);   // { url, expires } once a link exists to show
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState('');
+    const toggle = (id) => setIds((cur) => { const n = new Set(cur); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    const allowed = ids.size === types.length ? null : [...ids];
+    const guard = async (fn) => { setBusy(true); setErr(''); try { await fn(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+
+    const create = () => guard(async () => {
+      if (!v.name.trim()) throw new Error('Enter the client\u2019s name.');
+      if (!ids.size) throw new Error('Pick at least one session type.');
+      const r = await A.api('POST', '/api/admin/reservations', { slot_id: slot.id, client_name: v.name, client_email: v.email, note: v.note, allowed_type_ids: allowed, expires_hours: +v.hours });
+      setLink({ url: reserveLink(r.token), expires: r.reservation.expires_at });
+      onDone();
+    });
+    const save = () => guard(async () => {
+      if (!v.name.trim()) throw new Error('Enter the client\u2019s name.');
+      if (!ids.size) throw new Error('Pick at least one session type.');
+      await A.api('PATCH', '/api/admin/reservations/' + existing.id, { client_name: v.name, client_email: v.email, note: v.note, allowed_type_ids: allowed, ...(+v.hours ? { expires_hours: +v.hours } : {}) });
+      toast('Reservation updated'); onDone(); onClose();
+    });
+    const newLink = async () => {
+      if (!(await confirm({ title: 'Create a new link?', body: 'The old link stops working. Send the new one to ' + existing.client_name + '.', confirmLabel: 'Create new link' }))) return;
+      guard(async () => {
+        const r = await A.api('POST', '/api/admin/reservations/' + existing.id + '/regenerate');
+        setLink({ url: reserveLink(r.token), expires: r.reservation.expires_at });
+      });
+    };
+    const release = async () => {
+      if (!(await confirm({ title: 'Release this time?', body: 'The link stops working and ' + LSL.fmtTime(slot.time) + ' goes back to being open to everyone.', confirmLabel: 'Release time', danger: true }))) return;
+      guard(async () => { await A.api('POST', '/api/admin/reservations/' + existing.id + '/revoke'); toast('Time released'); onDone(); onClose(); });
+    };
+
+    const when = LSL.fmtDateLong(slot.date) + ' at ' + LSL.fmtTime(slot.time) + ' · ' + app.locName(slot.loc_id);
+    if (link) {
+      return (
+        <Dialog title="Sign-up link ready" onClose={onClose}
+          footer={<button className="lsl-btn lsl-btn--primary lsl-btn--sm" onClick={onClose}>Done</button>}>
+          {confirmUi}
+          <p className="lsl-body lsl-body--sm" style={{ marginTop: 0 }}>Send this link to <strong>{v.name}</strong>. It opens the booking page with <strong>{when}</strong> ready to book. They pick a session type, fill in their details, and pay.</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input className="lsl-input" readOnly value={link.url} onFocus={(e) => e.target.select()} aria-label="Sign-up link" data-autofocus />
+            <button className="lsl-btn lsl-btn--primary lsl-btn--sm" onClick={() => A.copy(link.url, toast)}><Icon name="copy" /> Copy</button>
+          </div>
+          <p className="lsl-a-muted lsl-a-small" style={{ marginBottom: 0 }}>The time is held for them until {A.stamp(link.expires)}, then opens to everyone. The link works for one booking. You can&rsquo;t view it again later, but Manage reservation &rarr; New link makes a fresh one.</p>
+        </Dialog>
+      );
+    }
+    return (
+      <Dialog title={existing ? 'Reservation · ' + LSL.fmtTime(slot.time) : 'Reserve ' + LSL.fmtTime(slot.time) + ' for a client'} onClose={onClose} busy={busy}
+        footer={<>
+          {existing && <button className="lsl-btn lsl-btn--danger lsl-btn--sm" onClick={release} disabled={busy} style={{ marginRight: 'auto' }}>Release time</button>}
+          {existing && <button className="lsl-btn lsl-btn--ghost lsl-btn--sm" onClick={newLink} disabled={busy}><Icon name="link" /> New link</button>}
+          <button className="lsl-btn lsl-btn--ghost lsl-btn--sm" onClick={onClose}>Cancel</button>
+          <button className="lsl-btn lsl-btn--primary lsl-btn--sm" onClick={existing ? save : create} disabled={busy}>{existing ? 'Save' : busy ? 'Creating…' : 'Create link'}</button>
+        </>}>
+        {confirmUi}
+        <p className="lsl-body lsl-body--sm" style={{ marginTop: 0 }}>{when}. Families see this time marked <strong>Reserved</strong>; only the person with the link can book it.</p>
+        <div className="lsl-a-grid">
+          <Field label="Client name" required><input className="lsl-input" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} data-autofocus /></Field>
+          <Field label="Client email" hint="Optional. For your records; it isn't sent anything."><input className="lsl-input" type="email" value={v.email} onChange={(e) => setV({ ...v, email: e.target.value })} /></Field>
+          <Field label={existing ? 'Extend the hold' : 'Hold the time for'}>
+            <select className="lsl-select" value={v.hours} onChange={(e) => setV({ ...v, hours: e.target.value })}>
+              {existing && <option value={0}>Keep until {A.stamp(existing.expires_at)}</option>}
+              {HOLD_CHOICES.map(([h, l]) => <option key={h} value={h}>{existing ? 'From now: ' : ''}{l}</option>)}
+            </select>
+          </Field>
+        </div>
+        <fieldset style={{ border: 0, padding: 0, marginTop: 14 }}>
+          <legend className="lsl-a-h4">Session types they can choose</legend>
+          {types.map((t) => <label key={t.id} className="lsl-a-check" style={{ display: 'flex', marginBottom: 6 }}><input type="checkbox" checked={ids.has(t.id)} onChange={() => toggle(t.id)} /> {t.name}</label>)}
+        </fieldset>
+        <Field label="Private note" hint="Only you see this."><textarea className="lsl-input" rows={2} value={v.note} onChange={(e) => setV({ ...v, note: e.target.value })} /></Field>
         {err && <A.Banner tone="danger">{err}</A.Banner>}
       </Dialog>
     );

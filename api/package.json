@@ -9,7 +9,8 @@
     "deploy:staging": "wrangler deploy --env staging",
     "migrate:remote": "wrangler d1 migrations apply lsl-booking --remote",
     "deploy": "wrangler deploy",
-    "test": "node test/run.mjs"
+    "test": "node test/run.mjs",
+    "test:reservations": "node test/reservations.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

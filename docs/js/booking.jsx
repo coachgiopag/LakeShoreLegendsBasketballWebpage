@@ -73,7 +73,23 @@ function PrivateBooking() {
   const loaded = LSL.isLoaded();
   const loadErr = LSL.loadError();
 
-  const openDates = new Set(allSlots.filter((s) => s.status === 'open' && (!locFilter || s.locId === locFilter)).map((s) => s.date));
+  // Coach-reserved time (private link): preselect it once, then limit session types to what the coach allowed.
+  const rsv = LSL.getReservation();
+  const mineId = rsv && rsv.state === 'ok' && rsv.slot ? rsv.slot.id : null;
+  const appliedRef = React.useRef(false);
+  useEffectBk(() => {
+    if (appliedRef.current || !mineId || !loaded) return;
+    appliedRef.current = true;
+    const [ty, tm] = (LSL.today() || isoOf(new Date())).split('-').map(Number);
+    const [sy, sm] = rsv.slot.date.split('-').map(Number);
+    setOffset(Math.max(0, (sy - ty) * 12 + (sm - tm)));
+    setDate(rsv.slot.date); setSlotId(mineId); setSvcType(null); setGroupTypeId(null);
+    const el = document.getElementById('book');
+    if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // A reserved time is listed (marked Reserved) so families can see it is taken, but only open times count as bookable.
+  const openDates = new Set(allSlots.filter((s) => (s.status === 'open' || s.status === 'reserved') && (!locFilter || s.locId === locFilter)).map((s) => s.date));
   const daySlots = date
     ? allSlots.filter((s) => s.date === date && (!locFilter || s.locId === locFilter)).sort((a, b) => a.time.localeCompare(b.time))
     : [];
@@ -81,8 +97,10 @@ function PrivateBooking() {
   daySlots.forEach((s) => { if (!byLoc[s.locId]) byLoc[s.locId] = []; byLoc[s.locId].push(s); });
 
   const slot = allSlots.find((s) => s.id === slotId) || null;
+  const allowedIds = mineId && slotId === mineId ? rsv.allowed_type_ids : null;
   const offeredHere = (t) => {
     if (!slot) return false;
+    if (allowedIds && !allowedIds.includes(t.id)) return false;
     const loc = LSL.locById(slot.locId);
     return (!t.eligible_loc_ids || t.eligible_loc_ids.includes(slot.locId)) && (!loc.eligible_type_ids || loc.eligible_type_ids.includes(t.id));
   };
@@ -130,6 +148,8 @@ function PrivateBooking() {
           </div>
         )}
 
+        <ReservationNotice rsv={rsv} />
+
         <div className="lsl-sched">
           <div className="lsl-sched__col">
             <div className="lsl-sched__head" style={{ textAlign: 'center' }}>Select a Date</div>
@@ -165,15 +185,20 @@ function PrivateBooking() {
                     <div key={lid} style={{ marginBottom: 16 }}>
                       <div className="lsl-times__loc">{LSL.locById(lid).name || lid}</div>
                       <div className="lsl-times__row">
-                        {byLoc[lid].map((s) => (
-                          <button key={s.id}
-                            className={'lsl-time' + (s.status !== 'open' ? ' is-booked' : '') + (slotId === s.id ? ' is-sel' : '')}
-                            disabled={s.status !== 'open'} aria-pressed={slotId === s.id}
-                            aria-label={LSL.fmtTime(s.time) + (s.status !== 'open' ? ', booked' : '')}
-                            onClick={() => s.status === 'open' && pickSlot(s.id)}>
-                            {LSL.fmtTime(s.time)}
-                          </button>
-                        ))}
+                        {byLoc[lid].map((s) => {
+                          const mine = s.id === mineId;
+                          const reserved = s.status === 'reserved' && !mine;
+                          const bookable = s.status === 'open' || mine;
+                          return (
+                            <button key={s.id}
+                              className={'lsl-time' + (!bookable ? ' is-booked' : '') + (reserved ? ' is-reserved' : '') + (mine ? ' is-mine' : '') + (slotId === s.id ? ' is-sel' : '')}
+                              disabled={!bookable} aria-pressed={slotId === s.id}
+                              aria-label={LSL.fmtTime(s.time) + (mine ? ', reserved for you' : reserved ? ', reserved' : !bookable ? ', booked' : '')}
+                              onClick={() => bookable && pickSlot(s.id)}>
+                              {LSL.fmtTime(s.time)}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   ))
@@ -243,6 +268,37 @@ function PrivateBooking() {
       )}
       {reqTrainOpen && <TrainingRequestForm onClose={() => setReqTrainOpen(false)} />}
     </section>
+  );
+}
+
+function ReservationNotice({ rsv }) {
+  useEffectBk(() => { if (window.lucide) window.lucide.createIcons(); });
+  if (!rsv || rsv.state === 'loading') return null;
+  const wrap = { maxWidth: 640, margin: '0 auto 20px' };
+  if (rsv.state === 'ok' && rsv.slot) {
+    const loc = LSL.locById(rsv.slot.locId);
+    const until = new Date(rsv.expires_at).toLocaleDateString('en-US', { timeZone: LSL.tz(), weekday: 'short', month: 'short', day: 'numeric' }) + ', ' + LSL.fmtInstant(rsv.expires_at);
+    return (
+      <div className="lsl-bknote" role="status" style={wrap}>
+        <i data-lucide="calendar-check"></i>
+        <span><strong>Reserved for {rsv.client_name}:</strong> {LSL.fmtDateLong(rsv.slot.date)} at {LSL.fmtTime(rsv.slot.time)}{loc.name ? ' · ' + loc.name : ''}.
+          Choose your session type below to book it. This time is held for you until {until}.</span>
+      </div>
+    );
+  }
+  const msg = {
+    used: 'This reserved time has already been booked.',
+    expired: 'This reservation link has expired. Please contact Coach Gio, or choose another time below.',
+    revoked: 'This reservation link is no longer active. Please contact Coach Gio, or choose another time below.',
+    unavailable: 'This reserved time is no longer available. Please contact Coach Gio, or choose another time below.',
+    invalid: 'This reservation link is not valid. Please check the link or contact Coach Gio.',
+    error: 'We couldn\u2019t check your reservation right now. Please refresh and try again.',
+  }[rsv.state] || 'This reservation link is not available.';
+  return (
+    <div className="lsl-bknote" role="alert" style={wrap}>
+      <i data-lucide="info"></i>
+      <span>{msg}</span>
+    </div>
   );
 }
 
@@ -334,7 +390,9 @@ function BookingForm({ desc, onClose, onBooked }) {
     setBusy(true);
     try {
       const members = groupMembers.filter((m) => m.name.trim() || m.contact.trim());
-      const res = await LSL.createBooking({ slotId: slot.id, typeId: type.id, players: desc.players, form, roster: members, acks: ackd, website: form.website });
+      const rv = LSL.getReservation();
+      const reserveToken = rv && rv.state === 'ok' && rv.slot && rv.slot.id === slot.id ? LSL.reserveToken : undefined;
+      const res = await LSL.createBooking({ slotId: slot.id, typeId: type.id, players: desc.players, form, roster: members, acks: ackd, website: form.website, reserveToken });
       const rec = { ...res.booking, mode: 'dated', players: desc.players, form, roster: [{ primary: true }, ...members], checkoutUrl: res.checkoutUrl, shareUrl: res.shareUrl, athletes: res.athletes, next: res.next, duration: type.duration };
       notifyCoach(rec);
       setResult(rec);

@@ -154,7 +154,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     for (var d = 1; d <= days; d++) cells.push(d);
     var daySlots = (byDate[sel] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
     var dayBlocks = blocksOn(sel);
-    var open = daySlots.filter(s => s.status === 'open');
+    var open = daySlots.filter(s => s.status === 'open' && !s.reservation);
+    var reserved = daySlots.filter(s => s.status === 'open' && s.reservation);
     var live = daySlots.filter(s => s.status !== 'open');
     var hours = live.reduce((n, s) => n + (s.duration || 60), 0) / 60;
     var hardCount = daySlots.filter(s => s.conflicts.some(c => c.severity === 'hard')).length;
@@ -204,10 +205,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       };
     }();
     var dayLabel = (iso, ds, bl) => {
-      var o = ds.filter(s => s.status === 'open').length,
-        b = ds.filter(s => s.status !== 'open').length;
+      var o = ds.filter(s => s.status === 'open' && !s.reservation).length,
+        b = ds.filter(s => s.status !== 'open').length,
+        rv = ds.filter(s => s.status === 'open' && s.reservation).length;
       var c = ds.some(s => s.conflicts.length);
-      return [LSL.fmtDateLong(iso), o && o + ' open', b && b + ' booked', ds.some(s => s.contingent) && 'back-to-back openings', c && 'has conflicts', bl.length && 'blocked time'].filter(Boolean).join(', ');
+      return [LSL.fmtDateLong(iso), o && o + ' open', rv && rv + ' reserved', b && b + ' booked', ds.some(s => s.contingent) && 'back-to-back openings', c && 'has conflicts', bl.length && 'blocked time'].filter(Boolean).join(', ');
     };
     return /*#__PURE__*/React.createElement("div", null, confirmUi, /*#__PURE__*/React.createElement("div", {
       className: "lsl-a-filters"
@@ -289,7 +291,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       var iso = ym.y + '-' + pad2(ym.m + 1) + '-' + pad2(day);
       var ds = byDate[iso] || [];
       var bl = blocksOn(iso);
-      var hasOpen = ds.some(s => s.status === 'open' && !s.contingent);
+      var hasOpen = ds.some(s => s.status === 'open' && !s.contingent && !s.reservation);
+      var hasReserved = ds.some(s => s.status === 'open' && s.reservation);
       var hasBooked = ds.some(s => s.status === 'booked');
       var hasHeld = ds.some(s => s.status === 'held');
       var hasB2B = ds.some(s => s.contingent);
@@ -308,6 +311,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         "aria-hidden": "true"
       }, hasOpen && /*#__PURE__*/React.createElement("span", {
         className: "lsl-admcal__dot lsl-admcal__dot--open"
+      }), hasReserved && /*#__PURE__*/React.createElement("span", {
+        className: "lsl-admcal__dot lsl-admcal__dot--reserved"
       }), hasHeld && /*#__PURE__*/React.createElement("span", {
         className: "lsl-admcal__dot lsl-admcal__dot--held"
       }), hasBooked && /*#__PURE__*/React.createElement("span", {
@@ -322,6 +327,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", {
       className: "lsl-admcal__dot lsl-admcal__dot--open"
     }), " Open"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", {
+      className: "lsl-admcal__dot lsl-admcal__dot--reserved"
+    }), " Reserved"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", {
       className: "lsl-admcal__dot lsl-admcal__dot--held"
     }), " Held"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", {
       className: "lsl-admcal__dot lsl-admcal__dot--booked"
@@ -354,7 +361,9 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       "aria-label": "Day summary"
     }, /*#__PURE__*/React.createElement("div", {
       className: "lsl-a-stat"
-    }, /*#__PURE__*/React.createElement("b", null, open.length), /*#__PURE__*/React.createElement("span", null, "Open")), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("b", null, open.length), /*#__PURE__*/React.createElement("span", null, "Open")), reserved.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "lsl-a-stat"
+    }, /*#__PURE__*/React.createElement("b", null, reserved.length), /*#__PURE__*/React.createElement("span", null, "Reserved")), /*#__PURE__*/React.createElement("div", {
       className: "lsl-a-stat"
     }, /*#__PURE__*/React.createElement("b", null, live.length), /*#__PURE__*/React.createElement("span", null, "Booked")), /*#__PURE__*/React.createElement("div", {
       className: "lsl-a-stat"
@@ -401,6 +410,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         onDelete: remove,
         onEdit: x => setDialog({
           kind: 'edit',
+          slot: x
+        }),
+        onReserve: x => setDialog({
+          kind: 'reserve',
           slot: x
         })
       })));
@@ -468,6 +481,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       locs: activeLocs,
       onClose: () => setDialog(null),
       onDone: refresh
+    }), dialog && dialog.kind === 'reserve' && /*#__PURE__*/React.createElement(ReservationDialog, {
+      slot: dialog.slot,
+      onClose: () => setDialog(null),
+      onDone: refresh
     }), dialog && dialog.kind === 'scope' && /*#__PURE__*/React.createElement(ScopeDeleteDialog, {
       slot: dialog.slot,
       onClose: () => setDialog(null),
@@ -481,7 +498,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       onMark = _ref7.onMark,
       onB2B = _ref7.onB2B,
       onDelete = _ref7.onDelete,
-      onEdit = _ref7.onEdit;
+      onEdit = _ref7.onEdit,
+      onReserve = _ref7.onReserve;
     var app = A.useApp();
     var _useState1 = useState(false),
       _useState10 = _slicedToArray(_useState1, 2),
@@ -497,12 +515,16 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }, "Held \xB7 awaiting payment") : s.status === 'booked' ? /*#__PURE__*/React.createElement(Badge, {
       tone: "orange",
       icon: "calendar-check"
-    }, s.manual ? 'Booked (manual)' : 'Booked') : /*#__PURE__*/React.createElement(Badge, {
+    }, s.manual ? 'Booked (manual)' : 'Booked') : s.reservation ? /*#__PURE__*/React.createElement(Badge, {
+      tone: "sky",
+      icon: "user-check",
+      title: 'Reserved for ' + s.reservation.client_name + ' until ' + A.stamp(s.reservation.expires_at)
+    }, "Reserved \xB7 ", s.reservation.client_name) : /*#__PURE__*/React.createElement(Badge, {
       tone: "outline",
       icon: "circle"
     }, "Open");
     return /*#__PURE__*/React.createElement("div", {
-      className: 'lsl-admcal__slot' + (s.contingent ? ' is-b2b' : '') + (s.status === 'booked' ? ' is-booked' : '') + (s.status === 'held' ? ' is-held' : '') + (hard.length ? ' has-hard' : '')
+      className: 'lsl-admcal__slot' + (s.reservation ? ' is-reserved' : '') + (s.contingent ? ' is-b2b' : '') + (s.status === 'booked' ? ' is-booked' : '') + (s.status === 'held' ? ' is-held' : '') + (hard.length ? ' has-hard' : '')
     }, /*#__PURE__*/React.createElement("div", {
       className: "lsl-admcal__slotmain"
     }, /*#__PURE__*/React.createElement("span", {
@@ -519,7 +541,9 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }, s.series_detached ? 'Edited' : 'Weekly'), s.coach_id && app.coaches.length > 1 && /*#__PURE__*/React.createElement(Badge, {
       tone: "muted",
       icon: "user"
-    }, app.coachName(s.coach_id)), s.booking && /*#__PURE__*/React.createElement("button", {
+    }, app.coachName(s.coach_id)), s.reservation && /*#__PURE__*/React.createElement("span", {
+      className: "lsl-a-muted lsl-a-small"
+    }, "held until ", A.stamp(s.reservation.expires_at)), s.booking && /*#__PURE__*/React.createElement("button", {
       className: "lsl-a-slotbooking",
       onClick: () => app.openBooking(s.booking_id)
     }, /*#__PURE__*/React.createElement(Icon, {
@@ -547,6 +571,13 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }), " Shown to families once ", LSL.fmtTime(anchor.time), " is booked")), /*#__PURE__*/React.createElement("div", {
       className: "lsl-admcal__slotactions"
     }, s.status === 'open' && /*#__PURE__*/React.createElement("button", {
+      className: 'lsl-btn lsl-btn--xs ' + (s.reservation ? 'lsl-btn--primary' : 'lsl-btn--ghost'),
+      disabled: busy,
+      onClick: () => onReserve(s),
+      title: "Hold this time for one client and get a private sign-up link"
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "user-check"
+    }), " ", s.reservation ? 'Manage reservation' : 'Reserve'), s.status === 'open' && /*#__PURE__*/React.createElement("button", {
       className: "lsl-btn lsl-btn--ghost lsl-btn--xs",
       disabled: busy,
       onClick: () => onMark(s, 'booked'),
@@ -1655,17 +1686,292 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       tone: "danger"
     }, err));
   }
-  function ScopeDeleteDialog(_ref24) {
+
+  /* Reserve an opening for one named client, or manage an existing reservation.
+     The sign-up link is shown once (only a hash is stored); "New link" replaces it. */
+  var HOLD_CHOICES = [[24, '24 hours'], [48, '48 hours'], [72, '3 days'], [168, '7 days']];
+  var reserveLink = token => location.origin + '/training.html?reserve=' + encodeURIComponent(token) + (window.LSL_API_NAME === 'staging' ? '&api=staging' : '');
+  function ReservationDialog(_ref24) {
     var slot = _ref24.slot,
       onClose = _ref24.onClose,
       onDone = _ref24.onDone;
+    var app = A.useApp();
     var toast = A.useToast();
-    var _useState75 = useState(false),
+    var _A$useConfirm3 = A.useConfirm(),
+      _A$useConfirm4 = _slicedToArray(_A$useConfirm3, 2),
+      confirmUi = _A$useConfirm4[0],
+      confirm = _A$useConfirm4[1];
+    var existing = slot.reservation;
+    var types = app.types.filter(t => t.active && !t.archived_at);
+    var _useState75 = useState({
+        name: existing ? existing.client_name : '',
+        email: existing ? existing.client_email : '',
+        note: existing ? existing.note : '',
+        hours: existing ? 0 : 24
+      }),
       _useState76 = _slicedToArray(_useState75, 2),
-      busy = _useState76[0],
-      setBusy = _useState76[1];
+      v = _useState76[0],
+      setV = _useState76[1];
+    var _useState77 = useState(() => new Set(existing && existing.allowed_type_ids ? existing.allowed_type_ids : types.map(t => t.id))),
+      _useState78 = _slicedToArray(_useState77, 2),
+      ids = _useState78[0],
+      setIds = _useState78[1];
+    var _useState79 = useState(null),
+      _useState80 = _slicedToArray(_useState79, 2),
+      link = _useState80[0],
+      setLink = _useState80[1]; // { url, expires } once a link exists to show
+    var _useState81 = useState(false),
+      _useState82 = _slicedToArray(_useState81, 2),
+      busy = _useState82[0],
+      setBusy = _useState82[1];
+    var _useState83 = useState(''),
+      _useState84 = _slicedToArray(_useState83, 2),
+      err = _useState84[0],
+      setErr = _useState84[1];
+    var toggle = id => setIds(cur => {
+      var n = new Set(cur);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+    var allowed = ids.size === types.length ? null : [...ids];
+    var guard = /*#__PURE__*/function () {
+      var _ref25 = _asyncToGenerator(function* (fn) {
+        setBusy(true);
+        setErr('');
+        try {
+          yield fn();
+        } catch (e) {
+          setErr(e.message);
+        } finally {
+          setBusy(false);
+        }
+      });
+      return function guard(_x6) {
+        return _ref25.apply(this, arguments);
+      };
+    }();
+    var create = () => guard(/*#__PURE__*/_asyncToGenerator(function* () {
+      if (!v.name.trim()) throw new Error('Enter the client\u2019s name.');
+      if (!ids.size) throw new Error('Pick at least one session type.');
+      var r = yield A.api('POST', '/api/admin/reservations', {
+        slot_id: slot.id,
+        client_name: v.name,
+        client_email: v.email,
+        note: v.note,
+        allowed_type_ids: allowed,
+        expires_hours: +v.hours
+      });
+      setLink({
+        url: reserveLink(r.token),
+        expires: r.reservation.expires_at
+      });
+      onDone();
+    }));
+    var save = () => guard(/*#__PURE__*/_asyncToGenerator(function* () {
+      if (!v.name.trim()) throw new Error('Enter the client\u2019s name.');
+      if (!ids.size) throw new Error('Pick at least one session type.');
+      yield A.api('PATCH', '/api/admin/reservations/' + existing.id, _objectSpread({
+        client_name: v.name,
+        client_email: v.email,
+        note: v.note,
+        allowed_type_ids: allowed
+      }, +v.hours ? {
+        expires_hours: +v.hours
+      } : {}));
+      toast('Reservation updated');
+      onDone();
+      onClose();
+    }));
+    var newLink = /*#__PURE__*/function () {
+      var _ref28 = _asyncToGenerator(function* () {
+        if (!(yield confirm({
+          title: 'Create a new link?',
+          body: 'The old link stops working. Send the new one to ' + existing.client_name + '.',
+          confirmLabel: 'Create new link'
+        }))) return;
+        guard(/*#__PURE__*/_asyncToGenerator(function* () {
+          var r = yield A.api('POST', '/api/admin/reservations/' + existing.id + '/regenerate');
+          setLink({
+            url: reserveLink(r.token),
+            expires: r.reservation.expires_at
+          });
+        }));
+      });
+      return function newLink() {
+        return _ref28.apply(this, arguments);
+      };
+    }();
+    var release = /*#__PURE__*/function () {
+      var _ref30 = _asyncToGenerator(function* () {
+        if (!(yield confirm({
+          title: 'Release this time?',
+          body: 'The link stops working and ' + LSL.fmtTime(slot.time) + ' goes back to being open to everyone.',
+          confirmLabel: 'Release time',
+          danger: true
+        }))) return;
+        guard(/*#__PURE__*/_asyncToGenerator(function* () {
+          yield A.api('POST', '/api/admin/reservations/' + existing.id + '/revoke');
+          toast('Time released');
+          onDone();
+          onClose();
+        }));
+      });
+      return function release() {
+        return _ref30.apply(this, arguments);
+      };
+    }();
+    var when = LSL.fmtDateLong(slot.date) + ' at ' + LSL.fmtTime(slot.time) + ' · ' + app.locName(slot.loc_id);
+    if (link) {
+      return /*#__PURE__*/React.createElement(Dialog, {
+        title: "Sign-up link ready",
+        onClose: onClose,
+        footer: /*#__PURE__*/React.createElement("button", {
+          className: "lsl-btn lsl-btn--primary lsl-btn--sm",
+          onClick: onClose
+        }, "Done")
+      }, confirmUi, /*#__PURE__*/React.createElement("p", {
+        className: "lsl-body lsl-body--sm",
+        style: {
+          marginTop: 0
+        }
+      }, "Send this link to ", /*#__PURE__*/React.createElement("strong", null, v.name), ". It opens the booking page with ", /*#__PURE__*/React.createElement("strong", null, when), " ready to book. They pick a session type, fill in their details, and pay."), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          gap: 8
+        }
+      }, /*#__PURE__*/React.createElement("input", {
+        className: "lsl-input",
+        readOnly: true,
+        value: link.url,
+        onFocus: e => e.target.select(),
+        "aria-label": "Sign-up link",
+        "data-autofocus": true
+      }), /*#__PURE__*/React.createElement("button", {
+        className: "lsl-btn lsl-btn--primary lsl-btn--sm",
+        onClick: () => A.copy(link.url, toast)
+      }, /*#__PURE__*/React.createElement(Icon, {
+        name: "copy"
+      }), " Copy")), /*#__PURE__*/React.createElement("p", {
+        className: "lsl-a-muted lsl-a-small",
+        style: {
+          marginBottom: 0
+        }
+      }, "The time is held for them until ", A.stamp(link.expires), ", then opens to everyone. The link works for one booking. You can\u2019t view it again later, but Manage reservation \u2192 New link makes a fresh one."));
+    }
+    return /*#__PURE__*/React.createElement(Dialog, {
+      title: existing ? 'Reservation · ' + LSL.fmtTime(slot.time) : 'Reserve ' + LSL.fmtTime(slot.time) + ' for a client',
+      onClose: onClose,
+      busy: busy,
+      footer: /*#__PURE__*/React.createElement(React.Fragment, null, existing && /*#__PURE__*/React.createElement("button", {
+        className: "lsl-btn lsl-btn--danger lsl-btn--sm",
+        onClick: release,
+        disabled: busy,
+        style: {
+          marginRight: 'auto'
+        }
+      }, "Release time"), existing && /*#__PURE__*/React.createElement("button", {
+        className: "lsl-btn lsl-btn--ghost lsl-btn--sm",
+        onClick: newLink,
+        disabled: busy
+      }, /*#__PURE__*/React.createElement(Icon, {
+        name: "link"
+      }), " New link"), /*#__PURE__*/React.createElement("button", {
+        className: "lsl-btn lsl-btn--ghost lsl-btn--sm",
+        onClick: onClose
+      }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+        className: "lsl-btn lsl-btn--primary lsl-btn--sm",
+        onClick: existing ? save : create,
+        disabled: busy
+      }, existing ? 'Save' : busy ? 'Creating…' : 'Create link'))
+    }, confirmUi, /*#__PURE__*/React.createElement("p", {
+      className: "lsl-body lsl-body--sm",
+      style: {
+        marginTop: 0
+      }
+    }, when, ". Families see this time marked ", /*#__PURE__*/React.createElement("strong", null, "Reserved"), "; only the person with the link can book it."), /*#__PURE__*/React.createElement("div", {
+      className: "lsl-a-grid"
+    }, /*#__PURE__*/React.createElement(Field, {
+      label: "Client name",
+      required: true
+    }, /*#__PURE__*/React.createElement("input", {
+      className: "lsl-input",
+      value: v.name,
+      onChange: e => setV(_objectSpread(_objectSpread({}, v), {}, {
+        name: e.target.value
+      })),
+      "data-autofocus": true
+    })), /*#__PURE__*/React.createElement(Field, {
+      label: "Client email",
+      hint: "Optional. For your records; it isn't sent anything."
+    }, /*#__PURE__*/React.createElement("input", {
+      className: "lsl-input",
+      type: "email",
+      value: v.email,
+      onChange: e => setV(_objectSpread(_objectSpread({}, v), {}, {
+        email: e.target.value
+      }))
+    })), /*#__PURE__*/React.createElement(Field, {
+      label: existing ? 'Extend the hold' : 'Hold the time for'
+    }, /*#__PURE__*/React.createElement("select", {
+      className: "lsl-select",
+      value: v.hours,
+      onChange: e => setV(_objectSpread(_objectSpread({}, v), {}, {
+        hours: e.target.value
+      }))
+    }, existing && /*#__PURE__*/React.createElement("option", {
+      value: 0
+    }, "Keep until ", A.stamp(existing.expires_at)), HOLD_CHOICES.map(_ref32 => {
+      var _ref33 = _slicedToArray(_ref32, 2),
+        h = _ref33[0],
+        l = _ref33[1];
+      return /*#__PURE__*/React.createElement("option", {
+        key: h,
+        value: h
+      }, existing ? 'From now: ' : '', l);
+    })))), /*#__PURE__*/React.createElement("fieldset", {
+      style: {
+        border: 0,
+        padding: 0,
+        marginTop: 14
+      }
+    }, /*#__PURE__*/React.createElement("legend", {
+      className: "lsl-a-h4"
+    }, "Session types they can choose"), types.map(t => /*#__PURE__*/React.createElement("label", {
+      key: t.id,
+      className: "lsl-a-check",
+      style: {
+        display: 'flex',
+        marginBottom: 6
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: ids.has(t.id),
+      onChange: () => toggle(t.id)
+    }), " ", t.name))), /*#__PURE__*/React.createElement(Field, {
+      label: "Private note",
+      hint: "Only you see this."
+    }, /*#__PURE__*/React.createElement("textarea", {
+      className: "lsl-input",
+      rows: 2,
+      value: v.note,
+      onChange: e => setV(_objectSpread(_objectSpread({}, v), {}, {
+        note: e.target.value
+      }))
+    })), err && /*#__PURE__*/React.createElement(A.Banner, {
+      tone: "danger"
+    }, err));
+  }
+  function ScopeDeleteDialog(_ref34) {
+    var slot = _ref34.slot,
+      onClose = _ref34.onClose,
+      onDone = _ref34.onDone;
+    var toast = A.useToast();
+    var _useState85 = useState(false),
+      _useState86 = _slicedToArray(_useState85, 2),
+      busy = _useState86[0],
+      setBusy = _useState86[1];
     var del = /*#__PURE__*/function () {
-      var _ref25 = _asyncToGenerator(function* (scope) {
+      var _ref35 = _asyncToGenerator(function* (scope) {
         setBusy(true);
         try {
           var r = yield A.api('DELETE', '/api/admin/slots/' + slot.id + '?scope=' + scope);
@@ -1678,8 +1984,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
           setBusy(false);
         }
       });
-      return function del(_x6) {
-        return _ref25.apply(this, arguments);
+      return function del(_x7) {
+        return _ref35.apply(this, arguments);
       };
     }();
     return /*#__PURE__*/React.createElement(Dialog, {

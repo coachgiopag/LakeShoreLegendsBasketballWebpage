@@ -129,7 +129,36 @@ function PrivateBooking() {
   var types = LSL.getTypes();
   var loaded = LSL.isLoaded();
   var loadErr = LSL.loadError();
-  var openDates = new Set(allSlots.filter(s => s.status === 'open' && (!locFilter || s.locId === locFilter)).map(s => s.date));
+
+  // Coach-reserved time (private link): preselect it once, then limit session types to what the coach allowed.
+  var rsv = LSL.getReservation();
+  var mineId = rsv && rsv.state === 'ok' && rsv.slot ? rsv.slot.id : null;
+  var appliedRef = React.useRef(false);
+  useEffectBk(() => {
+    if (appliedRef.current || !mineId || !loaded) return;
+    appliedRef.current = true;
+    var _split$map = (LSL.today() || isoOf(new Date())).split('-').map(Number),
+      _split$map2 = _slicedToArray(_split$map, 2),
+      ty = _split$map2[0],
+      tm = _split$map2[1];
+    var _rsv$slot$date$split$ = rsv.slot.date.split('-').map(Number),
+      _rsv$slot$date$split$2 = _slicedToArray(_rsv$slot$date$split$, 2),
+      sy = _rsv$slot$date$split$2[0],
+      sm = _rsv$slot$date$split$2[1];
+    setOffset(Math.max(0, (sy - ty) * 12 + (sm - tm)));
+    setDate(rsv.slot.date);
+    setSlotId(mineId);
+    setSvcType(null);
+    setGroupTypeId(null);
+    var el = document.getElementById('book');
+    if (el && el.scrollIntoView) el.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  });
+
+  // A reserved time is listed (marked Reserved) so families can see it is taken, but only open times count as bookable.
+  var openDates = new Set(allSlots.filter(s => (s.status === 'open' || s.status === 'reserved') && (!locFilter || s.locId === locFilter)).map(s => s.date));
   var daySlots = date ? allSlots.filter(s => s.date === date && (!locFilter || s.locId === locFilter)).sort((a, b) => a.time.localeCompare(b.time)) : [];
   var byLoc = {};
   daySlots.forEach(s => {
@@ -137,8 +166,10 @@ function PrivateBooking() {
     byLoc[s.locId].push(s);
   });
   var slot = allSlots.find(s => s.id === slotId) || null;
+  var allowedIds = mineId && slotId === mineId ? rsv.allowed_type_ids : null;
   var offeredHere = t => {
     if (!slot) return false;
+    if (allowedIds && !allowedIds.includes(t.id)) return false;
     var loc = LSL.locById(slot.locId);
     return (!t.eligible_loc_ids || t.eligible_loc_ids.includes(slot.locId)) && (!loc.eligible_type_ids || loc.eligible_type_ids.includes(t.id));
   };
@@ -245,7 +276,9 @@ function PrivateBooking() {
   }), /*#__PURE__*/React.createElement("span", null, "We couldn\u2019t load open times right now. ", /*#__PURE__*/React.createElement("button", {
     className: "lsl-linkbtn",
     onClick: () => LSL.refresh()
-  }, "Try again"), " or use Request Training below.")), /*#__PURE__*/React.createElement("div", {
+  }, "Try again"), " or use Request Training below.")), /*#__PURE__*/React.createElement(ReservationNotice, {
+    rsv: rsv
+  }), /*#__PURE__*/React.createElement("div", {
     className: "lsl-sched"
   }, /*#__PURE__*/React.createElement("div", {
     className: "lsl-sched__col"
@@ -317,14 +350,19 @@ function PrivateBooking() {
     className: "lsl-times__loc"
   }, LSL.locById(lid).name || lid), /*#__PURE__*/React.createElement("div", {
     className: "lsl-times__row"
-  }, byLoc[lid].map(s => /*#__PURE__*/React.createElement("button", {
-    key: s.id,
-    className: 'lsl-time' + (s.status !== 'open' ? ' is-booked' : '') + (slotId === s.id ? ' is-sel' : ''),
-    disabled: s.status !== 'open',
-    "aria-pressed": slotId === s.id,
-    "aria-label": LSL.fmtTime(s.time) + (s.status !== 'open' ? ', booked' : ''),
-    onClick: () => s.status === 'open' && pickSlot(s.id)
-  }, LSL.fmtTime(s.time))))))), /*#__PURE__*/React.createElement("div", {
+  }, byLoc[lid].map(s => {
+    var mine = s.id === mineId;
+    var reserved = s.status === 'reserved' && !mine;
+    var bookable = s.status === 'open' || mine;
+    return /*#__PURE__*/React.createElement("button", {
+      key: s.id,
+      className: 'lsl-time' + (!bookable ? ' is-booked' : '') + (reserved ? ' is-reserved' : '') + (mine ? ' is-mine' : '') + (slotId === s.id ? ' is-sel' : ''),
+      disabled: !bookable,
+      "aria-pressed": slotId === s.id,
+      "aria-label": LSL.fmtTime(s.time) + (mine ? ', reserved for you' : reserved ? ', reserved' : !bookable ? ', booked' : ''),
+      onClick: () => bookable && pickSlot(s.id)
+    }, LSL.fmtTime(s.time));
+  }))))), /*#__PURE__*/React.createElement("div", {
     className: "lsl-sched__col lsl-sched__col--border"
   }, /*#__PURE__*/React.createElement("div", {
     className: "lsl-sched__head"
@@ -407,13 +445,55 @@ function PrivateBooking() {
     onClose: () => setReqTrainOpen(false)
   }));
 }
-function Calendar(_ref2) {
-  var offset = _ref2.offset,
-    onOffset = _ref2.onOffset,
-    openDates = _ref2.openDates,
-    selected = _ref2.selected,
-    onPick = _ref2.onPick,
-    todayIso = _ref2.todayIso;
+function ReservationNotice(_ref2) {
+  var rsv = _ref2.rsv;
+  useEffectBk(() => {
+    if (window.lucide) window.lucide.createIcons();
+  });
+  if (!rsv || rsv.state === 'loading') return null;
+  var wrap = {
+    maxWidth: 640,
+    margin: '0 auto 20px'
+  };
+  if (rsv.state === 'ok' && rsv.slot) {
+    var loc = LSL.locById(rsv.slot.locId);
+    var until = new Date(rsv.expires_at).toLocaleDateString('en-US', {
+      timeZone: LSL.tz(),
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    }) + ', ' + LSL.fmtInstant(rsv.expires_at);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "lsl-bknote",
+      role: "status",
+      style: wrap
+    }, /*#__PURE__*/React.createElement("i", {
+      "data-lucide": "calendar-check"
+    }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", null, "Reserved for ", rsv.client_name, ":"), " ", LSL.fmtDateLong(rsv.slot.date), " at ", LSL.fmtTime(rsv.slot.time), loc.name ? ' · ' + loc.name : '', ". Choose your session type below to book it. This time is held for you until ", until, "."));
+  }
+  var msg = {
+    used: 'This reserved time has already been booked.',
+    expired: 'This reservation link has expired. Please contact Coach Gio, or choose another time below.',
+    revoked: 'This reservation link is no longer active. Please contact Coach Gio, or choose another time below.',
+    unavailable: 'This reserved time is no longer available. Please contact Coach Gio, or choose another time below.',
+    invalid: 'This reservation link is not valid. Please check the link or contact Coach Gio.',
+    error: 'We couldn\u2019t check your reservation right now. Please refresh and try again.'
+  }[rsv.state] || 'This reservation link is not available.';
+  return /*#__PURE__*/React.createElement("div", {
+    className: "lsl-bknote",
+    role: "alert",
+    style: wrap
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "info"
+  }), /*#__PURE__*/React.createElement("span", null, msg));
+}
+function Calendar(_ref3) {
+  var offset = _ref3.offset,
+    onOffset = _ref3.onOffset,
+    openDates = _ref3.openDates,
+    selected = _ref3.selected,
+    onPick = _ref3.onPick,
+    todayIso = _ref3.todayIso;
   useEffectBk(() => {
     if (window.lucide) window.lucide.createIcons();
   });
@@ -487,10 +567,10 @@ function useModalKeys(onClose, deps) {
     return () => window.removeEventListener('keydown', onKey);
   }, deps);
 }
-function BookingForm(_ref3) {
-  var desc = _ref3.desc,
-    onClose = _ref3.onClose,
-    onBooked = _ref3.onBooked;
+function BookingForm(_ref4) {
+  var desc = _ref4.desc,
+    onClose = _ref4.onClose,
+    onBooked = _ref4.onBooked;
   var settings = LSL.getSettings();
   var fields = settings.registration && settings.registration.fields || {};
   var acks = settings.registration && settings.registration.acknowledgments || [];
@@ -571,6 +651,8 @@ function BookingForm(_ref3) {
       setBusy(true);
       try {
         var members = groupMembers.filter(m => m.name.trim() || m.contact.trim());
+        var rv = LSL.getReservation();
+        var reserveToken = rv && rv.state === 'ok' && rv.slot && rv.slot.id === slot.id ? LSL.reserveToken : undefined;
         var res = yield LSL.createBooking({
           slotId: slot.id,
           typeId: type.id,
@@ -578,7 +660,8 @@ function BookingForm(_ref3) {
           form,
           roster: members,
           acks: ackd,
-          website: form.website
+          website: form.website,
+          reserveToken
         });
         var rec = _objectSpread(_objectSpread({}, res.booking), {}, {
           mode: 'dated',
@@ -607,11 +690,11 @@ function BookingForm(_ref3) {
     });
     return _submit.apply(this, arguments);
   }
-  var Field = _ref4 => {
-    var k = _ref4.k,
-      def = _ref4.def,
-      inputType = _ref4.type,
-      placeholder = _ref4.placeholder;
+  var Field = _ref5 => {
+    var k = _ref5.k,
+      def = _ref5.def,
+      inputType = _ref5.type,
+      placeholder = _ref5.placeholder;
     return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
       htmlFor: 'bk-' + k
     }, label(k, def), " ", req(k) && /*#__PURE__*/React.createElement("span", {
@@ -927,8 +1010,8 @@ function BookingForm(_ref3) {
     "data-lucide": "calendar-plus"
   }), " Add to calendar")))));
 }
-function TrainingRequestForm(_ref5) {
-  var onClose = _ref5.onClose;
+function TrainingRequestForm(_ref6) {
+  var onClose = _ref6.onClose;
   var _useStateBk29 = useStateBk({
       parent: '',
       athlete: '',

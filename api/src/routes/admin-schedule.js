@@ -3,6 +3,7 @@ import { getSettings } from '../lib/settings.js';
 import { addDays, dow, toMins, fromMins, zoned, localToInstant, daysBetween } from '../lib/time.js';
 import { annotateConflicts, blockHits, hardConflictsFor, pairConflict, rangeTimes, slotInterval } from '../lib/schedule.js';
 import { applyResolution, releaseSlot, daySlots } from '../lib/bookings.js';
+import { reservedSlotIds, revokeForSlots, markUsed, toApi } from '../lib/reservations.js';
 
 const MAX_GENERATE = 500;
 
@@ -21,6 +22,8 @@ export async function schedule(env, req, user, url) {
   const blocks = await all(db, 'SELECT * FROM blocks WHERE end_date >= ? AND date <= ? ORDER BY date', from, to);
   const series = await all(db, 'SELECT * FROM availability_series WHERE end_date >= ? AND start_date <= ?', from, to);
   // Requests and bookings without a slot still occupy coach time (approved requests carry a slot).
+  const reservedMap = await reservedSlotIds(db, from, to);
+  for (const s of slots) s.reserved = reservedMap.has(s.id) ? 1 : 0;
   const conflicts = annotateConflicts(slots, blocks, settings);
   if (user.role !== 'director') slots = slots.filter((s) => s.coach_id === user.id);
   return json({
@@ -34,6 +37,7 @@ export async function schedule(env, req, user, url) {
         manual: s.status !== 'open' && !s.booking_id,
         booking: s.booking_id && form ? { athlete: form.athlete, parent: form.parent, status: s.b_status, payment_status: s.b_payment, service: snap && snap.service_name, attention: s.b_attention } : null,
         conflicts: conflicts[s.id] || [],
+        reservation: reservedMap.has(s.id) ? toApi(reservedMap.get(s.id)) : null,
       };
     }),
     blocks: user.role === 'director' ? blocks : blocks.filter((b) => !b.coach_id || b.coach_id === user.id),
@@ -224,6 +228,7 @@ export async function deleteSlot(env, req, user, id, url) {
     stmts.push(stmt(db, "DELETE FROM slots WHERE id = ? AND status = 'open'", i));
     stmts.push(stmt(db, "DELETE FROM slots WHERE contingent_on = ? AND status = 'open'", i));
   }
+  await revokeForSlots(db, ids);
   if (scope === 'future' && s.series_id) stmts.push(stmt(db, 'UPDATE availability_series SET end_date = ?, updated_at = ? WHERE id = ?', addDays(s.date, -1), nowIso(), s.series_id));
   for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50));
   return json({ deleted: ids.length, kept });
@@ -257,6 +262,7 @@ export async function markSlot(env, req, user, id) {
     const r = await run(db, "UPDATE slots SET status = 'booked', updated_at = ? WHERE id = ? AND status = 'open'", nowIso(), id);
     assert(r.meta.changes, 409, 'Opening changed; refresh and try again.');
     const plan = await applyResolution(db, settings, { ...s, status: 'booked' }, others);
+    await markUsed(db, id, null);
     await audit(db, user.id, 'mark_booked', 'slot', id, { plan });
     return json({ ok: true, changes: plan });
   }

@@ -131,6 +131,7 @@
 .lsl-admcal__dot--b2b { border-radius: 1px !important; }
 .lsl-admcal__dot--conflict { border-radius: 0 !important; width: 7px !important; height: 6px !important; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .lsl-admcal__dot--held { background: #e3a002; border-radius: 50%; }
+.lsl-admcal__dot--reserved { background: var(--legend-navy); border-radius: 2px; width: 6px; height: 6px; }
 .lsl-admcal__day.is-blocked { background-image: repeating-linear-gradient(135deg, rgba(18,48,83,.07) 0 3px, transparent 3px 7px); border-radius: 8px; }
 .lsl-admcal__legend { flex-wrap: wrap; row-gap: 6px; }
 .lsl-a-daysum { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -147,6 +148,7 @@
 .lsl-admcal__slot { background: #fff; border: 1.5px solid var(--line-soft); border-radius: var(--r-md); margin-bottom: 8px; }
 .lsl-admcal__slot.is-booked { background: #fff8f1; border-color: #f3d4bb; }
 .lsl-admcal__slot.is-held { background: #fffaf0; border-color: #f0d59a; }
+.lsl-admcal__slot.is-reserved { background: #f3f8fd; border-color: #c6dcef; }
 .lsl-admcal__slot.has-hard { border-color: rgba(200,52,31,.55); }
 .lsl-a-slotbooking { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--legend-navy); text-decoration: underline; text-underline-offset: 2px; }
 .lsl-a-block-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--r-md); background: repeating-linear-gradient(135deg, #f3eee8 0 6px, #faf6f1 6px 12px); border: 1px solid var(--line-soft); margin-bottom: 8px; font-size: 13.5px; }

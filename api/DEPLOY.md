@@ -66,3 +66,25 @@ npm install && npm run migrate:local && npm run dev   # API on :8787
 npm test                                             # end-to-end tests, fake data
 ```
 Rebuild site JSX with `npm run build` from the repo root.
+
+## Reserved times (coach reserves a time for one client)
+
+Adds a `reservations` table (migration `0004_reservations.sql`) and the admin and
+public endpoints behind **Reserve** on the Availability tab. Deploy the Worker
+**before** merging the site changes, or the dashboard button will call an API that
+doesn't exist yet.
+
+Staging first (from `api/`):
+1. `npm run migrate:staging`
+2. `npm run deploy:staging`
+3. Open `coach-admin.html?api=staging`, pick an opening, click **Reserve**, copy the link.
+4. Open the link (it already carries `&api=staging`): the time is preselected, only the
+   allowed session types show, and booking goes to Stripe **test** checkout.
+5. Check that a normal visitor sees the time marked **Reserved** and cannot book it.
+
+Production, once staging looks right:
+1. `npm run migrate:remote`
+2. `npm run deploy`
+3. Merge the site changes (`docs/`) so the page and dashboard use the new endpoints.
+
+Automated checks (local `npm run dev` running): `npm run test:reservations`.

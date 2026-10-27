@@ -42,7 +42,8 @@ export function blockHits(slot, blocks) {
   });
 }
 
-const live = (s) => s.status === 'held' || s.status === 'booked';
+// A coach-reserved opening (s.reserved) holds its time like a booking does.
+const live = (s) => s.status === 'held' || s.status === 'booked' || !!s.reserved;
 
 /** Annotate each slot with conflicts. severity 'hard' = two live (held/booked)
     items collide; 'potential' = at least one side is still just an opening. */
@@ -86,7 +87,7 @@ export function hardConflictsFor(candidate, slots, blocks, settings) {
     B2B children follow their anchor. Returns [{id, action, newTime?, originalTime}]. */
 export function planResolution(booked, slots, settings) {
   const changes = {};
-  const others = slots.filter((s) => s.id !== booked.id && s.status === 'open' && s.date === booked.date && sameCoach(s, booked));
+  const others = slots.filter((s) => s.id !== booked.id && s.status === 'open' && !s.reserved && s.date === booked.date && sameCoach(s, booked));
   const bi = slotInterval(booked);
   for (const s of others) {
     const c = pairConflict(booked, s, settings);

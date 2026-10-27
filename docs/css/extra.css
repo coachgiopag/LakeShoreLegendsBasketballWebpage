@@ -376,6 +376,11 @@ a.lsl-btn { line-height: 1; }
 .lsl-time.is-sel { background: var(--legend-navy); border-color: var(--legend-navy); color: #fff; }
 .lsl-time.is-booked { color: var(--fg3); background: var(--bg-soft, #f5f5f3); border-color: var(--line-soft); cursor: not-allowed; position: relative; }
 .lsl-time.is-booked::after { content: 'Booked'; display: block; font-size: 10px; color: var(--legend-orange); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+.lsl-time.is-reserved::after { content: 'Reserved'; color: var(--navy-700, #1d3a63); }
+.lsl-time.is-mine { cursor: pointer; color: var(--fg1); background: #fff; border-color: var(--legend-orange); }
+.lsl-time.is-mine.is-sel { color: #fff; background: var(--legend-navy); border-color: var(--legend-navy); }
+.lsl-time.is-mine::after { content: 'Reserved for you'; display: block; font-size: 10px; color: var(--legend-orange); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+.lsl-time.is-mine.is-sel::after { color: #fff; }
 .lsl-times__req { width: 100%; margin-top: 14px; }
 
 .lsl-bksummary { display: flex; flex-wrap: wrap; gap: 9px 18px; padding: 14px 16px; background: var(--legend-cream); border-radius: var(--r-md); margin: 12px 0 18px; }

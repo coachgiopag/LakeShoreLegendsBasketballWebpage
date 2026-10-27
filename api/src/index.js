@@ -9,6 +9,7 @@ import * as sched from './routes/admin-schedule.js';
 import * as bk from './routes/admin-bookings.js';
 import * as cat from './routes/admin-catalog.js';
 import * as set from './routes/admin-settings.js';
+import * as rsv from './routes/admin-reservations.js';
 import { stripeWebhook } from './routes/stripe.js';
 
 const PUBLIC = [
@@ -16,6 +17,7 @@ const PUBLIC = [
   ['POST', /^\/api\/public\/bookings$/, (env, req, ctx) => pub.createBooking(env, req, ctx)],
   ['POST', /^\/api\/public\/requests$/, (env, req, ctx) => pub.createRequest(env, req, ctx)],
   ['GET', /^\/api\/public\/bookings\/([a-z0-9]+)$/, (env, req, ctx, m) => pub.bookingStatus(env, m[1])],
+  ['GET', /^\/api\/public\/reservations\/([A-Za-z0-9_-]+)$/, (env, req, ctx, m) => pub.reservationLookup(env, m[1])],
   ['POST', /^\/api\/public\/packages\/checkout$/, (env, req) => pub.packageCheckout(env, req)],
   ['POST', /^\/api\/auth\/login$/, (env, req) => auth.login(env, req)],
   ['POST', /^\/api\/auth\/logout$/, (env, req) => auth.logout(env, req)],
@@ -44,6 +46,10 @@ const ADMIN = [
   ['POST', /^\/api\/admin\/slots\/(\w+)\/b2b$/, (e, r, u, m) => sched.addB2B(e, r, u, m[1])],
   ['POST', /^\/api\/admin\/slots\/(\w+)\/mark$/, (e, r, u, m) => sched.markSlot(e, r, u, m[1])],
   ['PATCH', /^\/api\/admin\/series\/(\w+)$/, (e, r, u, m) => sched.updateSeries(e, r, u, m[1])],
+  ['POST', /^\/api\/admin\/reservations$/, (e, r, u) => rsv.createReservation(e, r, u)],
+  ['PATCH', /^\/api\/admin\/reservations\/(\w+)$/, (e, r, u, m) => rsv.updateReservation(e, r, u, m[1])],
+  ['POST', /^\/api\/admin\/reservations\/(\w+)\/regenerate$/, (e, r, u, m) => rsv.regenerateReservation(e, r, u, m[1])],
+  ['POST', /^\/api\/admin\/reservations\/(\w+)\/revoke$/, (e, r, u, m) => rsv.revokeReservation(e, r, u, m[1])],
   ['POST', /^\/api\/admin\/blocks$/, (e, r, u) => sched.createBlock(e, r, u)],
   ['DELETE', /^\/api\/admin\/blocks\/(\w+)$/, (e, r, u, m) => sched.deleteBlock(e, r, u, m[1])],
 

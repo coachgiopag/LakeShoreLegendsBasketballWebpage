@@ -14,11 +14,12 @@ import { uid, nowIso, all, first, run, stmt, parseJson, normEmail, clean, HttpEr
 import { planResolution, hardConflictsFor } from './schedule.js';
 import { zoned, localToInstant } from './time.js';
 import { notifyBooking } from './notify.js';
+import { flagReserved, markUsed } from './reservations.js';
 
 export const LIVE = ['awaiting_payment', 'confirmed', 'completed'];
 
 export async function daySlots(db, date) {
-  return all(db, 'SELECT * FROM slots WHERE date = ?', date);
+  return flagReserved(db, await all(db, 'SELECT * FROM slots WHERE date = ?', date), date, date);
 }
 export async function dayBlocks(db, date) {
   return all(db, 'SELECT * FROM blocks WHERE date <= ? AND end_date >= ?', date, date);
@@ -170,6 +171,7 @@ export async function confirmBooking(env, db, settings, bookingId, actor, why) {
   ];
   if (bk.slot_id) stmts.push(stmt(db, "UPDATE slots SET status = 'booked', updated_at = ? WHERE id = ? AND booking_id = ?", t, bk.slot_id, bookingId));
   await db.batch(stmts);
+  await markUsed(db, bk.slot_id, bookingId);
   const fresh = await first(db, 'SELECT * FROM bookings WHERE id = ?', bookingId);
   await notifyBooking(env, db, settings, fresh, 'confirmation', { dedupeKey: 'confirmation:' + bookingId + ':' + (fresh.date || '') + 'T' + (fresh.time || '') });
   return fresh;
